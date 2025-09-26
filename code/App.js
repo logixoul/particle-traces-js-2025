@@ -87,17 +87,20 @@ export class App {
 
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( this.renderer.domElement );
-
+        this.controls = new OrbitControls( this.camera, this.renderer.domElement );
+        
         this.camera.position.z = 1;
+        this.controls.update();
 
         this.renderer.setAnimationLoop( this.animate.bind(this) );
     }
     
     animate() {
+        this.controls.update();
+
         let toDispose = [];
         let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
         let vertexColors = new Uint8Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
