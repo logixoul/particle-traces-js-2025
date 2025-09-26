@@ -46,7 +46,7 @@ class Particle {
         this.position.subScalar(0.5);
         this.acceleration = new THREE.Vector3();
         this.lifespan = 1000;
-        this.age = 0;
+        this.age = Math.floor(Math.random() * this.lifespan);
         this.color = new THREE.Color();
         this.color.setHSL(Math.random(), 1, 0.5);
     }
