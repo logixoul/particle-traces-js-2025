@@ -1,6 +1,7 @@
 //import { AudioThreadManager } from "./AudioThreadManager.js";
 import * as THREE from 'three'
 import * as SimplexNoise from 'simplex-noise';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
 const noise3D = SimplexNoise.createNoise3D();
 
@@ -102,44 +103,42 @@ export class App {
         let vertexColors = new Uint8Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
         let positionIndex = 0; // vertex index
         let colorIndex = 0; // color index
-        let particleIndex = 0;
-        for (let particle of this.particles) {
-            particleIndex++;
+        for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
+            let particle = this.particles[particleIndex];
+            if (particle.age > particle.lifespan) {
+                particle = this.particles[particleIndex] = new Particle();
+            }
             particle.update();
 
-            if (particle.age > particle.lifespan) {
-                this.particles[particleIndex] = new Particle();
-            } else {
-                //const geometry = new THREE.BufferGeometry().setFromPoints(particle.oldPositions);
-                //toDispose.push(geometry);
-                //geometry.setAttribute('position', new THREE.Float32BufferAttribute( vertices, 3 ));
-                
-                //const line = new THREE.Line(geometry, particle.material);
-                //this.scene.add(line);
-                if(particle.oldPositions.length>=2){
-                    for(let i=0;i<particle.oldPositions.length-1;i++){
-                        let p1 = particle.oldPositions[i];
-                        let p2 = particle.oldPositions[i+1];
-                        vertexPositions[positionIndex++] = p1.x;
-                        vertexPositions[positionIndex++] = p1.y;
-                        vertexPositions[positionIndex++] = p1.z;
-                        vertexPositions[positionIndex++] = p2.x;
-                        vertexPositions[positionIndex++] = p2.y;
-                        vertexPositions[positionIndex++] = p2.z;
-                        let iNormalized = 1.0-i/(particle.oldPositions.length-1);
-                        let brightness = 255.0*Math.exp(-iNormalized*2.0);
-                        //console.log(brightness);
-                        vertexColors[colorIndex++] = particle.color.r*brightness;
-                        vertexColors[colorIndex++] = particle.color.g*brightness;
-                        vertexColors[colorIndex++] = particle.color.b*brightness;
-                        vertexColors[colorIndex++] = particle.color.r*brightness;
-                        vertexColors[colorIndex++] = particle.color.g*brightness;
-                        vertexColors[colorIndex++] = particle.color.b*brightness;                        
-                    }
+            //const geometry = new THREE.BufferGeometry().setFromPoints(particle.oldPositions);
+            //toDispose.push(geometry);
+            //geometry.setAttribute('position', new THREE.Float32BufferAttribute( vertices, 3 ));
+            
+            //const line = new THREE.Line(geometry, particle.material);
+            //this.scene.add(line);
+            if(particle.oldPositions.length>=2){
+                for(let i=0;i<particle.oldPositions.length-1;i++){
+                    let p1 = particle.oldPositions[i];
+                    let p2 = particle.oldPositions[i+1];
+                    vertexPositions[positionIndex++] = p1.x;
+                    vertexPositions[positionIndex++] = p1.y;
+                    vertexPositions[positionIndex++] = p1.z;
+                    vertexPositions[positionIndex++] = p2.x;
+                    vertexPositions[positionIndex++] = p2.y;
+                    vertexPositions[positionIndex++] = p2.z;
+                    let iNormalized = 1.0-i/(particle.oldPositions.length-1);
+                    let brightness = 255.0*Math.exp(-iNormalized*2.0);
+                    //console.log(brightness);
+                    vertexColors[colorIndex++] = particle.color.r*brightness;
+                    vertexColors[colorIndex++] = particle.color.g*brightness;
+                    vertexColors[colorIndex++] = particle.color.b*brightness;
+                    vertexColors[colorIndex++] = particle.color.r*brightness;
+                    vertexColors[colorIndex++] = particle.color.g*brightness;
+                    vertexColors[colorIndex++] = particle.color.b*brightness;                        
                 }
             }
-            
         }
+            
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute( vertexPositions, 3 ));
         geometry.setAttribute('color', new THREE.BufferAttribute( vertexColors, 3, true ));
