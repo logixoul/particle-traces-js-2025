@@ -2,6 +2,28 @@
 import * as THREE from 'three'
 import * as SimplexNoise from 'simplex-noise';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+import { DotScreenPass } from 'three/addons/postprocessing/DotScreenPass.js';
+import { MaskPass, ClearMaskPass } from 'three/addons/postprocessing/MaskPass.js';
+import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
+
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+
+import { BleachBypassShader } from 'three/addons/shaders/BleachBypassShader.js';
+import { ColorifyShader } from 'three/addons/shaders/ColorifyShader.js';
+import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
+import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
+import { SepiaShader } from 'three/addons/shaders/SepiaShader.js';
+import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
 
 const noise3D = SimplexNoise.createNoise3D();
 
@@ -96,6 +118,33 @@ export class App {
         this.controls.update();
 
         this.renderer.setAnimationLoop( this.animate.bind(this) );
+
+        this.composer = new EffectComposer( this.renderer );
+        this.composer.addPass( new RenderPass( this.scene, this.camera ) );
+        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.5, 0.1, 0.0 );
+		this.composer.addPass( bloomPass );
+        let bleachBypassPass = new ShaderPass( BleachBypassShader );
+        bleachBypassPass.uniforms['opacity'].value = 0.8;
+        //this.composer.addPass( bleachBypassPass );
+        /*let BokehPass1 = new BokehPass( this.scene, this.camera, {
+            focus: 0.5,
+            aperture: 0.025,
+            maxblur: 0.01,
+            width: window.innerWidth,
+            height: window.innerHeight
+        } );
+        this.composer.addPass( BokehPass1 );*/
+
+		const effect3 = new OutputPass();
+		this.composer.addPass( effect3 );
+
+        if ( this.renderer.getContext() instanceof WebGL2RenderingContext ) {
+            this.composer.renderTarget1.samples = 8;
+            this.composer.renderTarget2.samples = 8;
+        }
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.0;
+        
     }
     
     animate() {
@@ -103,7 +152,7 @@ export class App {
 
         let toDispose = [];
         let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
-        let vertexColors = new Uint8Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
+        let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
         let positionIndex = 0; // vertex index
         let colorIndex = 0; // color index
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
@@ -130,7 +179,7 @@ export class App {
                     vertexPositions[positionIndex++] = p2.y;
                     vertexPositions[positionIndex++] = p2.z;
                     let iNormalized = 1.0-i/(particle.oldPositions.length-1);
-                    let brightness = 255.0*Math.exp(-iNormalized*2.0);
+                    let brightness = 1.0*Math.exp(-iNormalized*2.0);
                     //console.log(brightness);
                     vertexColors[colorIndex++] = particle.color.r*brightness;
                     vertexColors[colorIndex++] = particle.color.g*brightness;
@@ -142,14 +191,21 @@ export class App {
             }
         }
             
-        const geometry = new THREE.BufferGeometry();
+        /*const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute( vertexPositions, 3 ));
-        geometry.setAttribute('color', new THREE.BufferAttribute( vertexColors, 3, true ));
+        geometry.setAttribute('color', new THREE.BufferAttribute( vertexColors, 3, true ));*/
+        const geometry = new LineSegmentsGeometry();
+        geometry.setPositions( vertexPositions );
+        geometry.setColors( vertexColors );
+        //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
-        const line = new THREE.LineSegments( geometry, new THREE.LineBasicMaterial( { vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, new LineMaterial( { vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        line.computeLineDistances();
+        line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
-        this.renderer.render( this.scene, this.camera );
+        this.composer.render();
+        //this.renderer.render( this.scene, this.camera );
         this.scene.clear();
         for(let objectToDispose of toDispose){
             objectToDispose.dispose();
