@@ -126,7 +126,7 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
-        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.1, 0.0 );
+        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.0 );
 		this.composer.addPass( bloomPass );
         //let bleachBypassPass = new ShaderPass( BleachBypassShader );
         //bleachBypassPass.uniforms['opacity'].value = 0.8;
@@ -143,10 +143,10 @@ export class App {
 		const effect3 = new OutputPass();
 		this.composer.addPass( effect3 );
 
-        if ( this.renderer.getContext() instanceof WebGL2RenderingContext ) {
+        /*if ( this.renderer.getContext() instanceof WebGL2RenderingContext ) {
             this.composer.renderTarget1.samples = 8;
             this.composer.renderTarget2.samples = 8;
-        }
+        }*/
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.0;
         
@@ -187,13 +187,15 @@ export class App {
                     vertexPositions[positionIndex++] = p2.z;
                     let iNormalized = 1.0-i/(particle.oldPositions.length-1);
                     let brightness = 1.0*Math.exp(-iNormalized*2.0);
+                    let add = i==particle.oldPositions.length-2?10.5:0.0;
+                    brightness += add;add=0;
                     //console.log(brightness);
-                    vertexColors[colorIndex++] = c1.r*brightness;
-                    vertexColors[colorIndex++] = c1.g*brightness;
-                    vertexColors[colorIndex++] = c1.b*brightness;
-                    vertexColors[colorIndex++] = c2.r*brightness;
-                    vertexColors[colorIndex++] = c2.g*brightness;
-                    vertexColors[colorIndex++] = c2.b*brightness;                        
+                    vertexColors[colorIndex++] = c1.r*brightness+add;
+                    vertexColors[colorIndex++] = c1.g*brightness+add;
+                    vertexColors[colorIndex++] = c1.b*brightness+add;
+                    vertexColors[colorIndex++] = c2.r*brightness+add;
+                    vertexColors[colorIndex++] = c2.g*brightness+add;
+                    vertexColors[colorIndex++] = c2.b*brightness+add;                      
                 }
             }
         }
@@ -206,7 +208,7 @@ export class App {
         geometry.setColors( vertexColors );
         //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { linewidth: 4, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, new LineMaterial( { alphaToCoverage: true, linewidth: 4, vertexColors: true, blending: THREE.AdditiveBlending } ) );
         line.computeLineDistances();
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
