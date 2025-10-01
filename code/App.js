@@ -10,9 +10,9 @@ function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
     const dx = eps, dy = eps, dz = eps;
 
     // Noise field components
-    const Fx = noiseFn(x, y, z);
-    const Fy = noiseFn(y + 100, z + 100, x + 100);
-    const Fz = noiseFn(z + 200, x + 200, y + 200);
+    //const Fx = noiseFn(x, y, z);
+    //const Fy = noiseFn(y + 100, z + 100, x + 100);
+    //const Fz = noiseFn(z + 200, x + 200, y + 200);
 
     // dFz/dy
     const dFz_dy = (noiseFn(z + 200, x + 200, y + 200 + dy) - noiseFn(z + 200, x + 200, y + 200 - dy)) / (2 * dy);
