@@ -61,6 +61,7 @@ function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
 const TAIL_LENGTH = 100;
 class Particle {
     oldPositions = [];
+    oldColors = [];
     
     constructor() {
         this.position = new THREE.Vector3(Math.random(), Math.random(), Math.random());
@@ -86,6 +87,10 @@ class Particle {
         }
         this.velocity.add(this.acceleration);
         this.color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
+        this.oldColors.push(this.color.clone());
+        if (this.oldColors.length > TAIL_LENGTH) {
+            this.oldColors.shift();
+        }
         this.position.add(this.velocity);
         this.velocity.set(0, 0, 0);
         this.age++;
@@ -121,10 +126,10 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
-        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.5, 0.1, 0.0 );
+        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.1, 0.0 );
 		this.composer.addPass( bloomPass );
-        let bleachBypassPass = new ShaderPass( BleachBypassShader );
-        bleachBypassPass.uniforms['opacity'].value = 0.8;
+        //let bleachBypassPass = new ShaderPass( BleachBypassShader );
+        //bleachBypassPass.uniforms['opacity'].value = 0.8;
         //this.composer.addPass( bleachBypassPass );
         /*let BokehPass1 = new BokehPass( this.scene, this.camera, {
             focus: 0.5,
@@ -172,6 +177,8 @@ export class App {
                 for(let i=0;i<particle.oldPositions.length-1;i++){
                     let p1 = particle.oldPositions[i];
                     let p2 = particle.oldPositions[i+1];
+                    let c1 = particle.oldColors[i];
+                    let c2 = particle.oldColors[i+1];
                     vertexPositions[positionIndex++] = p1.x;
                     vertexPositions[positionIndex++] = p1.y;
                     vertexPositions[positionIndex++] = p1.z;
@@ -181,12 +188,12 @@ export class App {
                     let iNormalized = 1.0-i/(particle.oldPositions.length-1);
                     let brightness = 1.0*Math.exp(-iNormalized*2.0);
                     //console.log(brightness);
-                    vertexColors[colorIndex++] = particle.color.r*brightness;
-                    vertexColors[colorIndex++] = particle.color.g*brightness;
-                    vertexColors[colorIndex++] = particle.color.b*brightness;
-                    vertexColors[colorIndex++] = particle.color.r*brightness;
-                    vertexColors[colorIndex++] = particle.color.g*brightness;
-                    vertexColors[colorIndex++] = particle.color.b*brightness;                        
+                    vertexColors[colorIndex++] = c1.r*brightness;
+                    vertexColors[colorIndex++] = c1.g*brightness;
+                    vertexColors[colorIndex++] = c1.b*brightness;
+                    vertexColors[colorIndex++] = c2.r*brightness;
+                    vertexColors[colorIndex++] = c2.g*brightness;
+                    vertexColors[colorIndex++] = c2.b*brightness;                        
                 }
             }
         }
@@ -199,7 +206,7 @@ export class App {
         geometry.setColors( vertexColors );
         //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, new LineMaterial( { linewidth: 4, vertexColors: true, blending: THREE.AdditiveBlending } ) );
         line.computeLineDistances();
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
