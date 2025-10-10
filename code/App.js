@@ -233,5 +233,20 @@ export class App {
         for(let objectToDispose of toDispose){
             objectToDispose.dispose();
         }
+
+        this.calcFps();
+    }
+
+    lastFpsUpdate = performance.now();
+    framesSinceLastFpsUpdate = 0;
+    calcFps(){
+        this.framesSinceLastFpsUpdate++;
+        let now = performance.now();
+        if(now - this.lastFpsUpdate > 1000){
+            let fps = this.framesSinceLastFpsUpdate*1000/(now - this.lastFpsUpdate);
+            document.getElementById('fps').innerText = fps.toFixed(1);
+            this.lastFpsUpdate = now;
+            this.framesSinceLastFpsUpdate = 0;
+        }
     }
 }
