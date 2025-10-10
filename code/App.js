@@ -8,6 +8,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { SAOPass } from 'three/addons/postprocessing/SAOPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import { DotScreenPass } from 'three/addons/postprocessing/DotScreenPass.js';
 import { MaskPass, ClearMaskPass } from 'three/addons/postprocessing/MaskPass.js';
@@ -15,6 +17,7 @@ import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
 
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
 import { BleachBypassShader } from 'three/addons/shaders/BleachBypassShader.js';
@@ -128,6 +131,16 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
+        /*const ssao = new SSAOPass( this.scene, this.camera, window.innerWidth, window.innerHeight );
+        ssao.output = SSAOPass.OUTPUT.Default;
+        ssao.kernelRadius = 2;
+        ssao.saoBias = 0.5;
+        ssao.saoIntensity = 1.0;
+        //ssao.kernelRadius = 16;
+        ssao.minDistance = 0.005;
+        ssao.maxDistance = 0.1;
+        this.composer.addPass( ssao );*/
+
         let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.5 );
 		this.composer.addPass( bloomPass );
         //let bleachBypassPass = new ShaderPass( BleachBypassShader );
@@ -141,14 +154,13 @@ export class App {
             height: window.innerHeight
         } );
         this.composer.addPass( BokehPass1 );*/
-
 		const effect3 = new OutputPass();
 		this.composer.addPass( effect3 );
 
-        /*if ( this.renderer.getContext() instanceof WebGL2RenderingContext ) {
+        if ( false&&this.renderer.getContext() instanceof WebGL2RenderingContext ) {
             this.composer.renderTarget1.samples = 8;
             this.composer.renderTarget2.samples = 8;
-        }*/
+        }
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.1;
         
@@ -210,8 +222,8 @@ export class App {
         geometry.setColors( vertexColors );
         //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, alphaToCoverage: true, linewidth: 2, vertexColors: true, blending: THREE.AdditiveBlending } ) );
-        line.computeLineDistances();
+        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        //line.computeLineDistances();
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
