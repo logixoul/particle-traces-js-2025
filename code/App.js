@@ -214,21 +214,15 @@ export class App {
             }
         }
             
-        /*const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute( vertexPositions, 3 ));
-        geometry.setAttribute('color', new THREE.BufferAttribute( vertexColors, 3, true ));*/
         const geometry = new LineSegmentsGeometry();
         geometry.setPositions( vertexPositions );
         geometry.setColors( vertexColors );
-        //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
         const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
-        //line.computeLineDistances();
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
         this.composer.render();
-        //this.renderer.render( this.scene, this.camera );
         this.scene.clear();
         for(let objectToDispose of toDispose){
             objectToDispose.dispose();
