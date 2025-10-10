@@ -170,8 +170,8 @@ export class App {
         this.controls.update();
 
         let toDispose = [];
-        let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
-        let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 ); // 3 values per vertex, 2 vertices per line
+        let vertexPositions = new Float32Array( (TAIL_LENGTH+2)*this.particles.length * 3 );
+        let vertexColors = new Float32Array( (TAIL_LENGTH+2)*this.particles.length * 3 );
         let positionIndex = 0; // vertex index
         let colorIndex = 0; // color index
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
@@ -187,30 +187,37 @@ export class App {
             
             //const line = new THREE.Line(geometry, particle.material);
             //this.scene.add(line);
+            if(particleIndex!=0){
+                let pFirst = particle.oldPositions[0];
+                vertexPositions[positionIndex++] = pFirst.x;
+                vertexPositions[positionIndex++] = pFirst.y;
+                vertexPositions[positionIndex++] = pFirst.z;
+                vertexColors[colorIndex++] = 0;
+                vertexColors[colorIndex++] = 0;
+                vertexColors[colorIndex++] = 0;
+            }
             if(particle.oldPositions.length>=2){
                 for(let i=0;i<particle.oldPositions.length-1;i++){
                     let p1 = particle.oldPositions[i];
-                    let p2 = particle.oldPositions[i+1];
                     let c1 = particle.oldColors[i];
-                    let c2 = particle.oldColors[i+1];
                     vertexPositions[positionIndex++] = p1.x;
                     vertexPositions[positionIndex++] = p1.y;
                     vertexPositions[positionIndex++] = p1.z;
-                    vertexPositions[positionIndex++] = p2.x;
-                    vertexPositions[positionIndex++] = p2.y;
-                    vertexPositions[positionIndex++] = p2.z;
                     let iNormalized = 1.0-i/(particle.oldPositions.length-1);
                     let brightness = 1.0*Math.exp(-iNormalized*2.0);
                     let add = i==particle.oldPositions.length-2?100.5:0.0;
                     brightness += add;
-                    //console.log(brightness);
                     vertexColors[colorIndex++] = c1.r*brightness;
                     vertexColors[colorIndex++] = c1.g*brightness;
                     vertexColors[colorIndex++] = c1.b*brightness;
-                    vertexColors[colorIndex++] = c2.r*brightness;
-                    vertexColors[colorIndex++] = c2.g*brightness;
-                    vertexColors[colorIndex++] = c2.b*brightness;
                 }
+                let pLast = particle.oldPositions[particle.oldPositions.length-1];
+                vertexPositions[positionIndex++] = pLast.x;
+                vertexPositions[positionIndex++] = pLast.y;
+                vertexPositions[positionIndex++] = pLast.z;
+                vertexColors[colorIndex++] = 0;
+                vertexColors[colorIndex++] = 0;
+                vertexColors[colorIndex++] = 0;
             }
         }
             
@@ -218,7 +225,7 @@ export class App {
         geometry.setPositions( vertexPositions );
         geometry.setColors( vertexColors );
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new Line2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
