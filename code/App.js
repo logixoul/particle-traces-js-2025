@@ -202,14 +202,14 @@ export class App {
                     let iNormalized = 1.0-i/(particle.oldPositions.length-1);
                     let brightness = 1.0*Math.exp(-iNormalized*2.0);
                     let add = i==particle.oldPositions.length-2?100.5:0.0;
-                    brightness += add;add=0;
+                    brightness += add;
                     //console.log(brightness);
-                    vertexColors[colorIndex++] = c1.r*brightness+add;
-                    vertexColors[colorIndex++] = c1.g*brightness+add;
-                    vertexColors[colorIndex++] = c1.b*brightness+add;
-                    vertexColors[colorIndex++] = c2.r*brightness+add;
-                    vertexColors[colorIndex++] = c2.g*brightness+add;
-                    vertexColors[colorIndex++] = c2.b*brightness+add;                      
+                    vertexColors[colorIndex++] = c1.r*brightness;
+                    vertexColors[colorIndex++] = c1.g*brightness;
+                    vertexColors[colorIndex++] = c1.b*brightness;
+                    vertexColors[colorIndex++] = c2.r*brightness;
+                    vertexColors[colorIndex++] = c2.g*brightness;
+                    vertexColors[colorIndex++] = c2.b*brightness;
                 }
             }
         }
