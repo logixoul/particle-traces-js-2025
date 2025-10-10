@@ -77,6 +77,8 @@ class Particle {
         let noiseScale = 0.3;
         let positionInNoise = this.position.clone().multiplyScalar(noiseScale);
         this.acceleration = curlNoise3D(positionInNoise.x, positionInNoise.y, positionInNoise.z, noise3D);
+        //let positionInNoise2 = this.position.clone().multiplyScalar(noiseScale*3);
+        //this.acceleration.add(curlNoise3D(positionInNoise2.x, positionInNoise2.y, positionInNoise2.z, noise3D).clone().multiplyScalar(0.3));
             //noise3D(positionInNoise.y + 100, positionInNoise.z + 100, positionInNoise.x + 100),
             //noise3D(positionInNoise.z + 200, positionInNoise.x + 200, positionInNoise.y + 200)
         //);
@@ -208,7 +210,7 @@ export class App {
         geometry.setColors( vertexColors );
         //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, alphaToCoverage: true, linewidth: 4, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, alphaToCoverage: true, linewidth: 2, vertexColors: true, blending: THREE.AdditiveBlending } ) );
         line.computeLineDistances();
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
