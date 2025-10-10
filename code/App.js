@@ -15,10 +15,12 @@ import { DotScreenPass } from 'three/addons/postprocessing/DotScreenPass.js';
 import { MaskPass, ClearMaskPass } from 'three/addons/postprocessing/MaskPass.js';
 import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
 
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+/*import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
-import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';*/
+
+import { MeshLineGeometry, MeshLineMaterial, raycast } from 'meshline'
 
 import { BleachBypassShader } from 'three/addons/shaders/BleachBypassShader.js';
 import { ColorifyShader } from 'three/addons/shaders/ColorifyShader.js';
@@ -165,8 +167,64 @@ export class App {
         this.renderer.toneMappingExposure = 0.1;
         
     }
-    
     animate() {
+        this.controls.update();
+
+        let toDispose = [];
+        for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
+            let particle = this.particles[particleIndex];
+            if (particle.age > particle.lifespan) {
+                particle = this.particles[particleIndex] = new Particle();
+            }
+            particle.update();
+
+            let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 ); // 3 values per vertex
+            let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 ); // 3 values per vertex
+            let positionIndex = 0; // vertex index
+            let colorIndex = 0; // color index
+            if(particle.oldPositions.length>=2){
+                for(let i=0;i<particle.oldPositions.length-1;i++){
+                    let p1 = particle.oldPositions[i];
+                    let c1 = particle.oldColors[i];
+                    vertexPositions[positionIndex++] = p1.x;
+                    vertexPositions[positionIndex++] = p1.y;
+                    vertexPositions[positionIndex++] = p1.z;
+                    let iNormalized = 1.0-i/(particle.oldPositions.length-1);
+                    let brightness = 1.0*Math.exp(-iNormalized*2.0);
+                    let add = i==particle.oldPositions.length-2?100.5:0.0;
+                    brightness += add;add=0;
+                    //console.log(brightness);
+                    vertexColors[colorIndex++] = c1.r*brightness+add;
+                    vertexColors[colorIndex++] = c1.g*brightness+add;
+                    vertexColors[colorIndex++] = c1.b*brightness+add;
+                }
+            }
+            const gradientTex = new THREE.DataTexture( vertexColors, vertexColors.length / 3, 1, THREE.RGBFormat );
+            gradientTex.needsUpdate = true;
+            toDispose.push(gradientTex);
+            const geometry = new MeshLineGeometry();
+            geometry.setPoints( vertexPositions );
+            const material = new MeshLineMaterial( {
+                map: gradientTex, useMap: 1,
+                transparent: true, resolution: new THREE.Vector2( window.innerWidth, window.innerHeight ),
+                depthWrite: false, sizeAttenuation: true, lineWidth: 0.02, blending: THREE.AdditiveBlending
+            } );
+            
+            toDispose.push(geometry);
+            toDispose.push(material);
+            const line = new THREE.Mesh( geometry, material );
+            this.scene.add( line );
+            //line.scale.set( 1, 1, 1 );
+        }
+            
+        this.composer.render();
+        //this.renderer.render( this.scene, this.camera );
+        this.scene.clear();
+        for(let objectToDispose of toDispose){
+            objectToDispose.dispose();
+        }
+    }
+    animate_old() {
         this.controls.update();
 
         let toDispose = [];
@@ -217,7 +275,7 @@ export class App {
         /*const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.BufferAttribute( vertexPositions, 3 ));
         geometry.setAttribute('color', new THREE.BufferAttribute( vertexColors, 3, true ));*/
-        const geometry = new LineSegmentsGeometry();
+        const geometry = new MeshLineGeometry();
         geometry.setPositions( vertexPositions );
         geometry.setColors( vertexColors );
         //const geometry = geometry.toNonIndexed(); // ensure each vertex has unique color
