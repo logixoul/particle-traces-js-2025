@@ -72,36 +72,39 @@ function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
 }
 
 const TAIL_LENGTH = 100;
+const LIFESPAN = 1000;
 class Particle {
-    oldPositions = [];
-    oldColors = [];
-    
     constructor() {
+        this.oldPositions = new Array(TAIL_LENGTH);
+        this.oldColors = new Array(TAIL_LENGTH);
+        this.reinit();
+    }
+    reinit() {
+        this.newestIndex = -1;
+        this.age = 0;
+
         this.position = new THREE.Vector3(Math.random(), Math.random(), Math.random());
-        this.velocity = new THREE.Vector3();
         this.position.subScalar(0.5);
-        this.acceleration = new THREE.Vector3();
-        this.lifespan = 1000;
-        this.age = Math.floor(Math.random() * this.lifespan);
+        this.remainingLife = Math.floor(Math.random() * LIFESPAN);
         this.color = new THREE.Color();
-        this.color.setHSL(Math.random(), 1, 0.5);
+        //this.color.setHSL(Math.random(), 1, 0.5);
+
+        for (let i = 0; i < TAIL_LENGTH; i++) {
+            this.update();
+        }
     }
     update() {
         let noiseScale = 0.3;
-        let positionInNoise = this.position.clone().multiplyScalar(noiseScale);
-        this.velocity = curlNoise3D(positionInNoise.x, positionInNoise.y, positionInNoise.z, noise3D);
-        this.velocity.multiplyScalar(0.01);
-        this.oldPositions.push(this.position.clone());
-        if (this.oldPositions.length > TAIL_LENGTH) {
-            this.oldPositions.shift();
-        }
-        this.color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
-        this.oldColors.push(this.color.clone());
-        if (this.oldColors.length > TAIL_LENGTH) {
-            this.oldColors.shift();
-        }
-        this.position.add(this.velocity);
+        let velocity = curlNoise3D(this.position.x * noiseScale, this.position.y * noiseScale, this.position.z * noiseScale, noise3D);
+        velocity.multiplyScalar(0.01);
+        this.color.setHSL((Math.atan2(velocity.y, velocity.x)/Math.PI+1)*.5, 1, 0.5);
+
+        this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
+        this.oldPositions[this.newestIndex]= this.position.clone();
+        this.oldColors[this.newestIndex]= this.color.clone();
+        this.position.add(velocity);
         this.age++;
+        this.remainingLife--;
     }
     dispose() {
         this.material.dispose();
@@ -113,11 +116,6 @@ export class App {
     constructor() {
         for (let i = 0; i < 1000; i++) {
             this.particles.push(new Particle());
-        }
-        for (let particle of this.particles) {
-            for (let i = 0; i < TAIL_LENGTH; i++) {
-                particle.update();
-            }
         }
 
         this.scene = new THREE.Scene();
@@ -190,8 +188,8 @@ export class App {
 
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
             let particle = this.particles[particleIndex];
-            if (particle.age > particle.lifespan) {
-                particle = this.particles[particleIndex] = new Particle();
+            if (particle.remainingLife == 0) {
+                particle.reinit();
             }
             particle.update();
 
@@ -201,26 +199,29 @@ export class App {
             
             //const line = new THREE.Line(geometry, particle.material);
             //this.scene.add(line);
-            if(particle.oldPositions.length>=2){
-                for(let i=0;i<particle.oldPositions.length-1;i++){
-                    let p1 = particle.oldPositions[i];
-                    let c1 = particle.oldColors[i].clone();
-                    let p2 = particle.oldPositions[i+1];
-                    vertexPositions[positionIndex++] = p1.x;
-                    vertexPositions[positionIndex++] = p1.y;
-                    vertexPositions[positionIndex++] = p1.z;
-                    vertexPositions[positionIndex++] = p2.x;
-                    vertexPositions[positionIndex++] = p2.y;
-                    vertexPositions[positionIndex++] = p2.z;
-                    let brightness = weights[i];
-                    c1.multiplyScalar(brightness);
-                    vertexColors[colorIndex++] = c1.r;
-                    vertexColors[colorIndex++] = c1.g;
-                    vertexColors[colorIndex++] = c1.b;
-                    vertexColors[colorIndex++] = c1.r;
-                    vertexColors[colorIndex++] = c1.g;
-                    vertexColors[colorIndex++] = c1.b;
-                }
+            for(let i=0;i<TAIL_LENGTH-1;i++){
+                let iCircular = (particle.newestIndex - i);
+                if(iCircular < 0) iCircular += TAIL_LENGTH;
+                iCircular %= TAIL_LENGTH;
+                let iNextCircular = iCircular - 1;
+                if(iNextCircular < 0) iNextCircular += TAIL_LENGTH;
+                
+                let p1 = particle.oldPositions[iCircular];
+                let c1 = particle.oldColors[iCircular];
+                let p2 = particle.oldPositions[iNextCircular];
+                let brightness = weights[TAIL_LENGTH-i-1];
+                vertexPositions[positionIndex++] = p1.x;
+                vertexColors[positionIndex] = c1.r * brightness;
+                vertexPositions[positionIndex++] = p1.y;
+                vertexColors[positionIndex] = c1.g * brightness;
+                vertexPositions[positionIndex++] = p1.z;
+                vertexColors[positionIndex] = c1.b * brightness;
+                vertexPositions[positionIndex++] = p2.x;
+                vertexColors[positionIndex] = c1.r * brightness;
+                vertexPositions[positionIndex++] = p2.y;
+                vertexColors[positionIndex] = c1.g * brightness;
+                vertexPositions[positionIndex++] = p2.z;
+                vertexColors[positionIndex] = c1.b * brightness;
             }
         }
             
