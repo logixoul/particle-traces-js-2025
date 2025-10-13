@@ -80,13 +80,13 @@ class Particle {
         this.oldColors = new Array(TAIL_LENGTH);
         this.position = new THREE.Vector3();
         this.color = new THREE.Color();
-        this.reinit();
-    }
-    reinit() {
         for (let i = 0; i < TAIL_LENGTH; i++) {
             this.oldPositions[i] = new THREE.Vector3();
             this.oldColors[i] = new THREE.Color();
         }
+        this.reinit();
+    }
+    reinit() {
         this.newestIndex = -1;
         this.age = 0;
 
@@ -172,6 +172,9 @@ export class App {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.1;
         
+        this.vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
+        this.vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
+        this.geometry = new LineSegmentsGeometry();
     }
     
     animate() {
@@ -180,8 +183,6 @@ export class App {
         this.controls.update();
 
         let toDispose = [];
-        let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
-        let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         let positionIndex = 0; // vertex index
 
         let weights = [];
@@ -217,28 +218,26 @@ export class App {
                 let c1 = particle.oldColors[iCircular];
                 let p2 = particle.oldPositions[iNextCircular];
                 let brightness = weights[TAIL_LENGTH-i-1];
-                vertexPositions[positionIndex++] = p1.x;
-                vertexColors[positionIndex] = c1.r * brightness;
-                vertexPositions[positionIndex++] = p1.y;
-                vertexColors[positionIndex] = c1.g * brightness;
-                vertexPositions[positionIndex++] = p1.z;
-                vertexColors[positionIndex] = c1.b * brightness;
-                vertexPositions[positionIndex++] = p2.x;
-                vertexColors[positionIndex] = c1.r * brightness;
-                vertexPositions[positionIndex++] = p2.y;
-                vertexColors[positionIndex] = c1.g * brightness;
-                vertexPositions[positionIndex++] = p2.z;
-                vertexColors[positionIndex] = c1.b * brightness;
+                this.vertexPositions[positionIndex++] = p1.x;
+                this.vertexColors[positionIndex] = c1.r * brightness;
+                this.vertexPositions[positionIndex++] = p1.y;
+                this.vertexColors[positionIndex] = c1.g * brightness;
+                this.vertexPositions[positionIndex++] = p1.z;
+                this.vertexColors[positionIndex] = c1.b * brightness;
+                this.vertexPositions[positionIndex++] = p2.x;
+                this.vertexColors[positionIndex] = c1.r * brightness;
+                this.vertexPositions[positionIndex++] = p2.y;
+                this.vertexColors[positionIndex] = c1.g * brightness;
+                this.vertexPositions[positionIndex++] = p2.z;
+                this.vertexColors[positionIndex] = c1.b * brightness;
             }
         }
             
-        const geometry = new LineSegmentsGeometry();
-        geometry.setPositions( vertexPositions );
-        geometry.setColors( vertexColors );
-        toDispose.push(geometry);
-        const line = new LineSegments2( geometry, lineMaterial );
+        this.geometry.setPositions( this.vertexPositions );
+        this.geometry.setColors( this.vertexColors );
+        const line = new LineSegments2( this.geometry, lineMaterial );
         //toDispose.push(line);
-        line.scale.set( 1, 1, 1 );
+        //line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
         this.composer.render();
