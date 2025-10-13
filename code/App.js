@@ -28,6 +28,16 @@ import { SepiaShader } from 'three/addons/shaders/SepiaShader.js';
 import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
 
+// monkey patch for optimization:
+LineSegmentsGeometry.prototype.computeBoundingSphere = function () {
+    this.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), Infinity);
+};
+LineSegmentsGeometry.prototype.computeBoundingBox = function () {
+    if ( this.boundingBox === null ) {
+        this.boundingBox = new THREE.Box3(new THREE.Vector3( Infinity, Infinity, Infinity ), new THREE.Vector3( -Infinity, -Infinity, -Infinity ) );
+    }
+};
+
 const noise3D = SimplexNoise.createNoise3D();
 
 function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
@@ -79,25 +89,18 @@ class Particle {
     update() {
         let noiseScale = 0.3;
         let positionInNoise = this.position.clone().multiplyScalar(noiseScale);
-        this.acceleration = curlNoise3D(positionInNoise.x, positionInNoise.y, positionInNoise.z, noise3D);
-        //let positionInNoise2 = this.position.clone().multiplyScalar(noiseScale*3);
-        //this.acceleration.add(curlNoise3D(positionInNoise2.x, positionInNoise2.y, positionInNoise2.z, noise3D).clone().multiplyScalar(0.3));
-            //noise3D(positionInNoise.y + 100, positionInNoise.z + 100, positionInNoise.x + 100),
-            //noise3D(positionInNoise.z + 200, positionInNoise.x + 200, positionInNoise.y + 200)
-        //);
-        this.acceleration.multiplyScalar(0.01);
+        this.velocity = curlNoise3D(positionInNoise.x, positionInNoise.y, positionInNoise.z, noise3D);
+        this.velocity.multiplyScalar(0.01);
         this.oldPositions.push(this.position.clone());
         if (this.oldPositions.length > TAIL_LENGTH) {
             this.oldPositions.shift();
         }
-        this.velocity.add(this.acceleration);
         this.color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
         this.oldColors.push(this.color.clone());
         if (this.oldColors.length > TAIL_LENGTH) {
             this.oldColors.shift();
         }
         this.position.add(this.velocity);
-        this.velocity.set(0, 0, 0);
         this.age++;
     }
     dispose() {
@@ -127,7 +130,8 @@ export class App {
         this.camera.position.z = 1;
         this.controls.update();
 
-        this.renderer.setAnimationLoop( this.animate.bind(this) );
+        //this.renderer.setAnimationLoop( this.animate.bind(this) );
+        window.setInterval( this.animate.bind(this), 1000/60 );
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
@@ -170,10 +174,20 @@ export class App {
         this.controls.update();
 
         let toDispose = [];
-        let vertexPositions = new Float32Array( (TAIL_LENGTH+2)*this.particles.length * 3 );
-        let vertexColors = new Float32Array( (TAIL_LENGTH+2)*this.particles.length * 3 );
+        let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
+        let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         let positionIndex = 0; // vertex index
         let colorIndex = 0; // color index
+
+        let weights = [];
+        for(let i=0;i<TAIL_LENGTH;i++){
+            let iNormalized = 1.0-i/(TAIL_LENGTH-1);
+            let brightness = Math.exp(-iNormalized*2.0);
+            let add = i==TAIL_LENGTH-2?100.5:0.0;
+            brightness += add;
+            weights.push(brightness);
+        }
+
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
             let particle = this.particles[particleIndex];
             if (particle.age > particle.lifespan) {
@@ -187,37 +201,26 @@ export class App {
             
             //const line = new THREE.Line(geometry, particle.material);
             //this.scene.add(line);
-            if(particleIndex!=0){
-                let pFirst = particle.oldPositions[0];
-                vertexPositions[positionIndex++] = pFirst.x;
-                vertexPositions[positionIndex++] = pFirst.y;
-                vertexPositions[positionIndex++] = pFirst.z;
-                vertexColors[colorIndex++] = 0;
-                vertexColors[colorIndex++] = 0;
-                vertexColors[colorIndex++] = 0;
-            }
             if(particle.oldPositions.length>=2){
                 for(let i=0;i<particle.oldPositions.length-1;i++){
                     let p1 = particle.oldPositions[i];
-                    let c1 = particle.oldColors[i];
+                    let c1 = particle.oldColors[i].clone();
+                    let p2 = particle.oldPositions[i+1];
                     vertexPositions[positionIndex++] = p1.x;
                     vertexPositions[positionIndex++] = p1.y;
                     vertexPositions[positionIndex++] = p1.z;
-                    let iNormalized = 1.0-i/(particle.oldPositions.length-1);
-                    let brightness = 1.0*Math.exp(-iNormalized*2.0);
-                    let add = i==particle.oldPositions.length-2?100.5:0.0;
-                    brightness += add;
-                    vertexColors[colorIndex++] = c1.r*brightness;
-                    vertexColors[colorIndex++] = c1.g*brightness;
-                    vertexColors[colorIndex++] = c1.b*brightness;
+                    vertexPositions[positionIndex++] = p2.x;
+                    vertexPositions[positionIndex++] = p2.y;
+                    vertexPositions[positionIndex++] = p2.z;
+                    let brightness = weights[i];
+                    c1.multiplyScalar(brightness);
+                    vertexColors[colorIndex++] = c1.r;
+                    vertexColors[colorIndex++] = c1.g;
+                    vertexColors[colorIndex++] = c1.b;
+                    vertexColors[colorIndex++] = c1.r;
+                    vertexColors[colorIndex++] = c1.g;
+                    vertexColors[colorIndex++] = c1.b;
                 }
-                let pLast = particle.oldPositions[particle.oldPositions.length-1];
-                vertexPositions[positionIndex++] = pLast.x;
-                vertexPositions[positionIndex++] = pLast.y;
-                vertexPositions[positionIndex++] = pLast.z;
-                vertexColors[colorIndex++] = 0;
-                vertexColors[colorIndex++] = 0;
-                vertexColors[colorIndex++] = 0;
             }
         }
             
@@ -225,7 +228,7 @@ export class App {
         geometry.setPositions( vertexPositions );
         geometry.setColors( vertexColors );
         toDispose.push(geometry);
-        const line = new Line2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
