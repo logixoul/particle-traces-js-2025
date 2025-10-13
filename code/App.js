@@ -41,7 +41,7 @@ LineSegmentsGeometry.prototype.computeBoundingBox = function () {
 const noise3D = SimplexNoise.createNoise3D();
 const lineMaterial = new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } );
 
-function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
+function curlNoise3D(dstVector, x, y, z, noiseFn, eps = 1e-4) {
     // Partial derivatives using central differences
     const dx = eps, dy = eps, dz = eps;
 
@@ -65,7 +65,7 @@ function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
     // dFx/dy
     const dFx_dy = (noiseFn(x, y + dy, z) - noiseFn(x, y - dy, z)) / (2 * dy);
 
-    return new THREE.Vector3(
+    dstVector.set(
         dFz_dy - dFy_dz,
         dFx_dz - dFz_dx,
         dFy_dx - dFx_dy
@@ -78,37 +78,38 @@ class Particle {
     constructor() {
         this.oldPositions = new Array(TAIL_LENGTH);
         this.oldColors = new Array(TAIL_LENGTH);
-        this.position = new THREE.Vector3();
-        this.color = new THREE.Color();
         for (let i = 0; i < TAIL_LENGTH; i++) {
             this.oldPositions[i] = new THREE.Vector3();
             this.oldColors[i] = new THREE.Color();
         }
+        this.velocity = new THREE.Vector3();
         this.reinit();
     }
     reinit() {
-        this.newestIndex = -1;
+        this.newestIndex = 0;
         this.age = 0;
 
-        this.position.set(Math.random(), Math.random(), Math.random());
-        this.position.subScalar(0.5);
+        let position = this.oldPositions[this.newestIndex];
+        position.set(Math.random(), Math.random(), Math.random());
+        position.subScalar(0.5);
         this.remainingLife = Math.floor(Math.random() * LIFESPAN);
-        //this.color.setHSL(Math.random(), 1, 0.5);
 
         for (let i = 0; i < TAIL_LENGTH; i++) {
             this.update();
         }
     }
     update() {
+        let position = this.oldPositions[this.newestIndex];
+        let color = this.oldColors[this.newestIndex];
         let noiseScale = 0.3;
-        let velocity = curlNoise3D(this.position.x * noiseScale, this.position.y * noiseScale, this.position.z * noiseScale, noise3D);
-        velocity.multiplyScalar(0.01);
-        this.color.setHSL((Math.atan2(velocity.y, velocity.x)/Math.PI+1)*.5, 1, 0.5);
+        curlNoise3D(this.velocity, position.x * noiseScale, position.y * noiseScale, position.z * noiseScale, noise3D);
+        this.velocity.multiplyScalar(0.01);
+        color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
 
         this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
-        this.oldPositions[this.newestIndex].copy(this.position);
-        this.oldColors[this.newestIndex].copy(this.color);
-        this.position.add(velocity);
+        this.oldPositions[this.newestIndex].copy(position);
+        this.oldColors[this.newestIndex].copy(color);
+        this.oldPositions[this.newestIndex].add(this.velocity);
         this.age++;
         this.remainingLife--;
     }
@@ -175,6 +176,18 @@ export class App {
         this.vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
         this.vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         this.geometry = new LineSegmentsGeometry();
+        
+        this.weights = [];
+        for(let i=0;i<TAIL_LENGTH;i++){
+            let iNormalized = 1.0-i/(TAIL_LENGTH-1);
+            let brightness = Math.exp(-iNormalized*2.0);
+            let add = i==TAIL_LENGTH-2?100.5:0.0;
+            brightness += add;
+            this.weights.push(brightness);
+        }
+
+        this.line = new LineSegments2( this.geometry, lineMaterial );
+        this.scene.add( this.line );
     }
     
     animate() {
@@ -185,15 +198,6 @@ export class App {
         let toDispose = [];
         let positionIndex = 0; // vertex index
 
-        let weights = [];
-        for(let i=0;i<TAIL_LENGTH;i++){
-            let iNormalized = 1.0-i/(TAIL_LENGTH-1);
-            let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-2?100.5:0.0;
-            brightness += add;
-            weights.push(brightness);
-        }
-
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
             let particle = this.particles[particleIndex];
             if (particle.remainingLife == 0) {
@@ -201,12 +205,6 @@ export class App {
             }
             particle.update();
 
-            //const geometry = new THREE.BufferGeometry().setFromPoints(particle.oldPositions);
-            //toDispose.push(geometry);
-            //geometry.setAttribute('position', new THREE.Float32BufferAttribute( vertices, 3 ));
-            
-            //const line = new THREE.Line(geometry, particle.material);
-            //this.scene.add(line);
             for(let i=0;i<TAIL_LENGTH-1;i++){
                 let iCircular = (particle.newestIndex - i);
                 if(iCircular < 0) iCircular += TAIL_LENGTH;
@@ -217,7 +215,7 @@ export class App {
                 let p1 = particle.oldPositions[iCircular];
                 let c1 = particle.oldColors[iCircular];
                 let p2 = particle.oldPositions[iNextCircular];
-                let brightness = weights[TAIL_LENGTH-i-1];
+                let brightness = this.weights[TAIL_LENGTH-i-1];
                 this.vertexPositions[positionIndex++] = p1.x;
                 this.vertexColors[positionIndex] = c1.r * brightness;
                 this.vertexPositions[positionIndex++] = p1.y;
@@ -235,13 +233,11 @@ export class App {
             
         this.geometry.setPositions( this.vertexPositions );
         this.geometry.setColors( this.vertexColors );
-        const line = new LineSegments2( this.geometry, lineMaterial );
         //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );
-        this.scene.add( line );
         
         this.composer.render();
-        this.scene.clear();
+        
         for(let objectToDispose of toDispose){
             objectToDispose.dispose();
         }
