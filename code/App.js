@@ -39,6 +39,7 @@ LineSegmentsGeometry.prototype.computeBoundingBox = function () {
 };
 
 const noise3D = SimplexNoise.createNoise3D();
+const lineMaterial = new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } );
 
 function curlNoise3D(x, y, z, noiseFn, eps = 1e-4) {
     // Partial derivatives using central differences
@@ -75,11 +76,15 @@ const TAIL_LENGTH = 100;
 const LIFESPAN = 1000;
 class Particle {
     constructor() {
-        this.oldPositions = new Array(TAIL_LENGTH);
-        this.oldColors = new Array(TAIL_LENGTH);
         this.reinit();
     }
     reinit() {
+        this.oldPositions = new Array(TAIL_LENGTH);
+        this.oldColors = new Array(TAIL_LENGTH);
+        for (let i = 0; i < TAIL_LENGTH; i++) {
+            this.oldPositions[i] = new THREE.Vector3();
+            this.oldColors[i] = new THREE.Color();
+        }
         this.newestIndex = -1;
         this.age = 0;
 
@@ -100,8 +105,8 @@ class Particle {
         this.color.setHSL((Math.atan2(velocity.y, velocity.x)/Math.PI+1)*.5, 1, 0.5);
 
         this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
-        this.oldPositions[this.newestIndex]= this.position.clone();
-        this.oldColors[this.newestIndex]= this.color.clone();
+        this.oldPositions[this.newestIndex].copy(this.position);
+        this.oldColors[this.newestIndex].copy(this.color);
         this.position.add(velocity);
         this.age++;
         this.remainingLife--;
@@ -169,13 +174,14 @@ export class App {
     }
     
     animate() {
+        lineMaterial.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
+        
         this.controls.update();
 
         let toDispose = [];
         let vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
         let vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         let positionIndex = 0; // vertex index
-        let colorIndex = 0; // color index
 
         let weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
@@ -229,7 +235,8 @@ export class App {
         geometry.setPositions( vertexPositions );
         geometry.setColors( vertexColors );
         toDispose.push(geometry);
-        const line = new LineSegments2( geometry, new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } ) );
+        const line = new LineSegments2( geometry, lineMaterial );
+        //toDispose.push(line);
         line.scale.set( 1, 1, 1 );
         this.scene.add( line );
         
