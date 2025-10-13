@@ -27,6 +27,7 @@ import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
 import { SepiaShader } from 'three/addons/shaders/SepiaShader.js';
 import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import Stats from 'three/addons/libs/stats.module.js';
 
 // monkey patch for optimization:
 LineSegmentsGeometry.prototype.computeBoundingSphere = function () {
@@ -37,6 +38,38 @@ LineSegmentsGeometry.prototype.computeBoundingBox = function () {
         this.boundingBox = new THREE.Box3(new THREE.Vector3( Infinity, Infinity, Infinity ), new THREE.Vector3( -Infinity, -Infinity, -Infinity ) );
     }
 };
+/*class Global {
+
+}*/
+LineSegmentsGeometry.prototype.setPositions = function( array ) {
+
+		let lineSegments;
+
+		if ( array instanceof Float32Array ) {
+
+			lineSegments = array;
+
+		} else if ( Array.isArray( array ) ) {
+
+			lineSegments = new Float32Array( array );
+
+		}
+
+		const instanceBuffer = new THREE.InstancedInterleavedBuffer( lineSegments, 6, 1 ); // xyz, xyz
+        instanceBuffer.setUsage(THREE.StreamCopyUsage); // lx
+		this.setAttribute( 'instanceStart', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 0 ) ); // xyz
+		this.setAttribute( 'instanceEnd', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 3 ) ); // xyz
+
+		this.instanceCount = this.attributes.instanceStart.count;
+
+		//
+
+		this.computeBoundingBox();
+		this.computeBoundingSphere();
+
+		return this;
+
+	};
 
 const noise3D = SimplexNoise.createNoise3D();
 const lineMaterial = new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } );
@@ -100,15 +133,16 @@ class Particle {
     }
     update() {
         let position = this.oldPositions[this.newestIndex];
+        
+        this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
         let color = this.oldColors[this.newestIndex];
         let noiseScale = 0.3;
         curlNoise3D(this.velocity, position.x * noiseScale, position.y * noiseScale, position.z * noiseScale, noise3D);
         this.velocity.multiplyScalar(0.01);
         color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
-
-        this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
         this.oldPositions[this.newestIndex].copy(position);
-        this.oldColors[this.newestIndex].copy(color);
+        
+        //this.oldColors[this.newestIndex].copy(color);
         this.oldPositions[this.newestIndex].add(this.velocity);
         this.age++;
         this.remainingLife--;
@@ -121,6 +155,11 @@ class Particle {
 export class App {
     particles = [];
     constructor() {
+        //!!!!!!!!!!!!!!!!!!
+        this.stats = new Stats();
+        document.body.appendChild( this.stats.dom );
+        //!!!!!!!!!!!!!!!!!!
+
         for (let i = 0; i < 1000; i++) {
             this.particles.push(new Particle());
         }
@@ -135,8 +174,8 @@ export class App {
         this.camera.position.z = 1;
         this.controls.update();
 
-        //this.renderer.setAnimationLoop( this.animate.bind(this) );
-        window.setInterval( this.animate.bind(this), 1000/60 );
+        this.renderer.setAnimationLoop( this.animate.bind(this) );
+        //window.setInterval( this.animate.bind(this), 1000/60 );
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
@@ -176,6 +215,12 @@ export class App {
         this.vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
         this.vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         this.geometry = new LineSegmentsGeometry();
+        //this.geometry.setUsage(THREE.StreamDrawUsage);
+        this.geometry.setPositions( this.vertexPositions );
+        this.geometry.setColors( this.vertexColors );
+        this.geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
+        this.geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
+
         
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
@@ -195,7 +240,7 @@ export class App {
         
         this.controls.update();
 
-        let toDispose = [];
+        //let toDispose = [];
         let positionIndex = 0; // vertex index
 
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
@@ -230,31 +275,26 @@ export class App {
                 this.vertexColors[positionIndex] = c1.b * brightness;
             }
         }
-            
-        this.geometry.setPositions( this.vertexPositions );
-        this.geometry.setColors( this.vertexColors );
+        const gl = this.renderer.getContext();
+
+        //this.geometry.getAttribute('instanceStart').data.array = this.vertexPositions;
+
+
+        /*this.geometry.getAttribute('instanceStart').needsUpdate = true;
+        this.geometry.getAttribute('instanceEnd').needsUpdate = true;
+        this.geometry.getAttribute('instanceColorStart').needsUpdate = true;
+        this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;*/
         //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );
-        
+
+        this.geometry.getAttribute('instanceStart').data.version++; // attempting to orphan
+        this.geometry.getAttribute('instanceColorStart').data.version++;
         this.composer.render();
         
-        for(let objectToDispose of toDispose){
+        /*for(let objectToDispose of toDispose){
             objectToDispose.dispose();
-        }
+        }*/
 
-        this.calcFps();
-    }
-
-    lastFpsUpdate = performance.now();
-    framesSinceLastFpsUpdate = 0;
-    calcFps(){
-        this.framesSinceLastFpsUpdate++;
-        let now = performance.now();
-        if(now - this.lastFpsUpdate > 1000){
-            let fps = this.framesSinceLastFpsUpdate*1000/(now - this.lastFpsUpdate);
-            document.getElementById('fps').innerText = fps.toFixed(1);
-            this.lastFpsUpdate = now;
-            this.framesSinceLastFpsUpdate = 0;
-        }
+        this.stats.update();
     }
 }
