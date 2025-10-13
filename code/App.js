@@ -76,11 +76,13 @@ const TAIL_LENGTH = 100;
 const LIFESPAN = 1000;
 class Particle {
     constructor() {
+        this.oldPositions = new Array(TAIL_LENGTH);
+        this.oldColors = new Array(TAIL_LENGTH);
+        this.position = new THREE.Vector3();
+        this.color = new THREE.Color();
         this.reinit();
     }
     reinit() {
-        this.oldPositions = new Array(TAIL_LENGTH);
-        this.oldColors = new Array(TAIL_LENGTH);
         for (let i = 0; i < TAIL_LENGTH; i++) {
             this.oldPositions[i] = new THREE.Vector3();
             this.oldColors[i] = new THREE.Color();
@@ -88,10 +90,9 @@ class Particle {
         this.newestIndex = -1;
         this.age = 0;
 
-        this.position = new THREE.Vector3(Math.random(), Math.random(), Math.random());
+        this.position.set(Math.random(), Math.random(), Math.random());
         this.position.subScalar(0.5);
         this.remainingLife = Math.floor(Math.random() * LIFESPAN);
-        this.color = new THREE.Color();
         //this.color.setHSL(Math.random(), 1, 0.5);
 
         for (let i = 0; i < TAIL_LENGTH; i++) {
