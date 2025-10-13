@@ -254,15 +254,15 @@ export class App {
             particle.update();
         }
         for(let i=0;i<TAIL_LENGTH-1;i++){
+            let iCircular = (this.particles[0].newestIndex - i);
+            if(iCircular < 0) iCircular += TAIL_LENGTH;
+            iCircular %= TAIL_LENGTH;
+            let iNextCircular = iCircular - 1;
+            if(iNextCircular < 0) iNextCircular += TAIL_LENGTH;
+                
             for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
                 let particle = this.particles[particleIndex];
         
-                let iCircular = (particle.newestIndex - i);
-                if(iCircular < 0) iCircular += TAIL_LENGTH;
-                iCircular %= TAIL_LENGTH;
-                let iNextCircular = iCircular - 1;
-                if(iNextCircular < 0) iNextCircular += TAIL_LENGTH;
-                
                 let p1 = particle.oldPositions[iCircular];
                 let c1 = particle.oldColors[iCircular];
                 let p2 = particle.oldPositions[iNextCircular];
@@ -281,6 +281,10 @@ export class App {
                 this.vertexColors[positionIndex] = c1.b * brightness;
             }
         }
+        // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
+        const numFloatsToUpdate = this.particles.length * 3 * 2;
+        //this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, numFloatsToUpdate);
+        //this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, numFloatsToUpdate);
         
         //this.geometry.getAttribute('instanceStart').data.array = this.vertexPositions;
         //this.geometry.getAttribute('instanceColorStart').data.array = this.vertexColors;
