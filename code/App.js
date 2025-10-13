@@ -56,7 +56,7 @@ LineSegmentsGeometry.prototype.setPositions = function( array ) {
 		}
 
 		const instanceBuffer = new THREE.InstancedInterleavedBuffer( lineSegments, 6, 1 ); // xyz, xyz
-        instanceBuffer.setUsage(THREE.StreamCopyUsage); // lx
+        //instanceBuffer.setUsage(THREE.StreamCopyUsage); // lx
 		this.setAttribute( 'instanceStart', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 0 ) ); // xyz
 		this.setAttribute( 'instanceEnd', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 3 ) ); // xyz
 
@@ -221,6 +221,9 @@ export class App {
         this.geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
         this.geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
 
+        // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
+        this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, this.vertexPositions.length);
+        this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, this.vertexColors.length);
         
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
@@ -249,8 +252,11 @@ export class App {
                 particle.reinit();
             }
             particle.update();
-
-            for(let i=0;i<TAIL_LENGTH-1;i++){
+        }
+        for(let i=0;i<TAIL_LENGTH-1;i++){
+            for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
+                let particle = this.particles[particleIndex];
+        
                 let iCircular = (particle.newestIndex - i);
                 if(iCircular < 0) iCircular += TAIL_LENGTH;
                 iCircular %= TAIL_LENGTH;
@@ -275,20 +281,46 @@ export class App {
                 this.vertexColors[positionIndex] = c1.b * brightness;
             }
         }
-        const gl = this.renderer.getContext();
-
+        
         //this.geometry.getAttribute('instanceStart').data.array = this.vertexPositions;
+        //this.geometry.getAttribute('instanceColorStart').data.array = this.vertexColors;
 
-
-        /*this.geometry.getAttribute('instanceStart').needsUpdate = true;
+        this.geometry.getAttribute('instanceStart').needsUpdate = true;
         this.geometry.getAttribute('instanceEnd').needsUpdate = true;
         this.geometry.getAttribute('instanceColorStart').needsUpdate = true;
-        this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;*/
+        this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
+        
         //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );
 
-        this.geometry.getAttribute('instanceStart').data.version++; // attempting to orphan
-        this.geometry.getAttribute('instanceColorStart').data.version++;
+        // copy arrays first (same as above)
+// get the InterleavedBuffer that LineSegmentsGeometry created
+/*const instStartAttr = this.geometry.getAttribute('instanceStart'); // InterleavedBufferAttribute
+const instColorStartAttr = this.geometry.getAttribute('instanceColorStart');
+const interleavedPos = instStartAttr.data;      // InstancedInterleavedBuffer
+const interleavedColor = instColorStartAttr.data;
+interleavedPos.array.set(this.vertexPositions);
+interleavedColor.array.set(this.vertexColors);
+
+// manual orphan then let Three.js upload on next update
+const gl = this.renderer.getContext();
+
+// get the WebGLBuffer wrapper that Three.js uses internally
+const webglPos = this.renderer.attributes.get(interleavedPos);
+const webglColor = this.renderer.attributes.get(interleavedColor);
+
+// orphan the underlying GL buffers
+gl.bindBuffer(gl.ARRAY_BUFFER, webglPos.buffer);
+gl.bufferData(gl.ARRAY_BUFFER, interleavedPos.array.byteLength, gl.DYNAMIC_DRAW);
+
+gl.bindBuffer(gl.ARRAY_BUFFER, webglColor.buffer);
+gl.bufferData(gl.ARRAY_BUFFER, interleavedColor.array.byteLength, gl.DYNAMIC_DRAW);
+
+// mark for update so Three.js will upload the new contents
+interleavedPos.needsUpdate = true;
+interleavedColor.needsUpdate = true;*/
+        
+
         this.composer.render();
         
         /*for(let objectToDispose of toDispose){
