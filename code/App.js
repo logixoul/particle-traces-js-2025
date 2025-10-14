@@ -10,7 +10,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { LineMaterial } from 'MyLineMaterial';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
-import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineSegmentsGeometry } from 'MyLineSegmentsGeometry';
 
 
 import Stats from 'three/addons/libs/stats.module.js';
@@ -108,7 +108,7 @@ class Particle {
     }
     reinit(positionFloatArray, colorFloatArray) {
         this.queueFront = 0;
-        this.prevWriteIndex = this.calcWriteIndex(this.queueFront);
+        this.prevPosBufferIndex = this.calcPositionBufferIndex(this.queueFront);
         this.age = 0;
 
         this.position.set(Math.random(), Math.random(), Math.random());
@@ -120,23 +120,29 @@ class Particle {
             //this.update(positionFloatArray, colorFloatArray);
         //}
     }
-    calcWriteIndex(i) {
+    calcPositionBufferIndex(i) {
         const iWrapped = i;// % TAIL_LENGTH;
         return (this.particleIndex * TAIL_LENGTH + iWrapped) * 3 * 2;
     }
+    calcColorBufferIndex(i) {
+        const iWrapped = i;// % TAIL_LENGTH;
+        return (this.particleIndex * TAIL_LENGTH + iWrapped) * 3;
+    }
+    
 
     update(positionFloatArray, colorFloatArray) {
         this.prevPosition.copy(this.position);
         
-        let writeIndex = this.calcWriteIndex(this.queueFront);
+        let posBufferIndex = this.calcPositionBufferIndex(this.queueFront);
+        let colBufferIndex = this.calcColorBufferIndex(this.queueFront);
         /*if(this.age != 0) {
-            this.prevPosition.set(positionFloatArray[writeIndex + 0], positionFloatArray[writeIndex + 1], positionFloatArray[writeIndex + 2]);
+            this.prevPosition.set(positionFloatArray[posBufferIndex + 0], positionFloatArray[posBufferIndex + 1], positionFloatArray[posBufferIndex + 2]);
         } else {
             this.prevPosition.copy(this.position);
         }*/
         this.queueFront = (this.queueFront + 1) % TAIL_LENGTH;
-        writeIndex = this.calcWriteIndex(this.queueFront);
-
+        posBufferIndex = this.calcPositionBufferIndex(this.queueFront);
+        colBufferIndex = this.calcColorBufferIndex(this.queueFront);
         
         //this.color = new THREE.Color();
         let noiseScale = 0.3;
@@ -147,19 +153,15 @@ class Particle {
         this.age++;
         this.remainingLife--;
 
-        //positionFloatArray.copyWithin(writeIndex, this.prevWriteIndex, this.prevWriteIndex + 3);
-        positionFloatArray.set(this.prevPosition.toArray(), writeIndex + 0);
-        positionFloatArray.set(this.position.toArray(), writeIndex + 3);
-        //colorFloatArray.set(this.prevColor.toArray(), writeIndex + 0);
-        //colorFloatArray.set(this.color.toArray(), writeIndex + 3);
-        colorFloatArray[writeIndex + 0] = this.color.r;
-        colorFloatArray[writeIndex + 1] = this.color.g;
-        colorFloatArray[writeIndex + 2] = this.color.b;
-        colorFloatArray[writeIndex + 3] = this.color.r;
-        colorFloatArray[writeIndex + 4] = this.color.g;
-        colorFloatArray[writeIndex + 5] = this.color.b;
-
-        this.prevWriteIndex = writeIndex;
+        //positionFloatArray.copyWithin(posBufferIndex, this.prevposBufferIndex, this.prevposBufferIndex + 3);
+        positionFloatArray.set(this.prevPosition.toArray(), posBufferIndex + 0);
+        positionFloatArray.set(this.position.toArray(), posBufferIndex + 3);
+        //colorFloatArray.set(this.color.toArray(), colBufferIndex + 3);
+        colorFloatArray[colBufferIndex + 0] = this.color.r;
+        colorFloatArray[colBufferIndex + 1] = this.color.g;
+        colorFloatArray[colBufferIndex + 2] = this.color.b;
+        
+        this.prevposBufferIndex = posBufferIndex;
         
     }
     dispose() {
@@ -271,7 +273,7 @@ export class App {
         /*for(let i=0;i<TAIL_LENGTH-1;i++){
             let brightness = this.weights[TAIL_LENGTH-i-1];
             for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
-                positionIndex = this.particles[particleIndex].calcWriteIndex(i);
+                positionIndex = this.particles[particleIndex].calcPositionBufferIndex(i);
         
                 this.vertexColors[positionIndex++] *= brightness;
                 this.vertexColors[positionIndex++] *= brightness;
@@ -286,7 +288,7 @@ export class App {
         this.geometry.getAttribute('instanceStart').needsUpdate = true;
         this.geometry.getAttribute('instanceEnd').needsUpdate = true;
         this.geometry.getAttribute('instanceColorStart').needsUpdate = true;
-        this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
+        //this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
         
         //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );

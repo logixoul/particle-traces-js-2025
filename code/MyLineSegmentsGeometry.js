@@ -145,10 +145,10 @@ class LineSegmentsGeometry extends InstancedBufferGeometry {
 
 		}
 
-		const instanceColorBuffer = new InstancedInterleavedBuffer( colors, 6, 1 ); // rgb, rgb
+		const instanceColorBuffer = new InstancedInterleavedBuffer( colors, 3, 1 ); // rgb, rgb
 
 		this.setAttribute( 'instanceColorStart', new InterleavedBufferAttribute( instanceColorBuffer, 3, 0 ) ); // rgb
-		this.setAttribute( 'instanceColorEnd', new InterleavedBufferAttribute( instanceColorBuffer, 3, 3 ) ); // rgb
+		//this.setAttribute( 'instanceColorEnd', new InterleavedBufferAttribute( instanceColorBuffer, 3, 3 ) ); // rgb
 
 		return this;
 
