@@ -97,7 +97,6 @@ class Particle {
         this.color = new THREE.Color();
         this.velocity = new THREE.Vector3();
         this.prevPosition = new THREE.Vector3();
-        this.prevColor = new THREE.Color();
         this.particleIndex = particleIndex;
         this.reinit(positionFloatArray, colorFloatArray);
     }
@@ -115,7 +114,6 @@ class Particle {
         this.position.set(Math.random(), Math.random(), Math.random());
         this.position.subScalar(0.5);
         this.prevPosition.copy(this.position);
-        this.prevColor.copy(this.color);
         this.remainingLife = Math.floor(Math.random() * LIFESPAN);
 
         //for (let i = 0; i < TAIL_LENGTH; i++) {
@@ -129,7 +127,6 @@ class Particle {
 
     update(positionFloatArray, colorFloatArray) {
         this.prevPosition.copy(this.position);
-        this.prevColor.copy(this.color);
         
         let writeIndex = this.calcWriteIndex(this.queueFront);
         /*if(this.age != 0) {
@@ -155,9 +152,9 @@ class Particle {
         positionFloatArray.set(this.position.toArray(), writeIndex + 3);
         //colorFloatArray.set(this.prevColor.toArray(), writeIndex + 0);
         //colorFloatArray.set(this.color.toArray(), writeIndex + 3);
-        colorFloatArray[writeIndex + 0] = this.prevColor.r;
-        colorFloatArray[writeIndex + 1] = this.prevColor.g;
-        colorFloatArray[writeIndex + 2] = this.prevColor.b;
+        colorFloatArray[writeIndex + 0] = this.color.r;
+        colorFloatArray[writeIndex + 1] = this.color.g;
+        colorFloatArray[writeIndex + 2] = this.color.b;
         colorFloatArray[writeIndex + 3] = this.color.r;
         colorFloatArray[writeIndex + 4] = this.color.g;
         colorFloatArray[writeIndex + 5] = this.color.b;
