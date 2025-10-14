@@ -202,9 +202,10 @@ export class App {
         //this.renderer.toneMapping = THREE.LinearToneMapping
         //this.renderer.setPixelRatio(0.5);
         
-        this.line = this.createLine();
+        // triple buffering for Intel GPU framedropping
+        this.line1 = this.createLine();
+        this.line2 = this.createLine();
         
-
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
@@ -215,7 +216,8 @@ export class App {
         }
 
         //this.line = new LineSegments2( this.geometry, lineMaterial );
-        this.scene.add( this.line );
+        this.lineToRender = this.line1;
+        this.lineToWriteTo = this.line2;
 
         //this.renderer.setAnimationLoop( this.animate.bind(this) );
         //this.animate();
@@ -245,6 +247,14 @@ export class App {
         /*if (time - this.lastTime < 33) return requestAnimationFrame(this.animate.bind(this));
         this.lastTime = time;*/
 
+        if(this.lineToRender === this.line1) {
+            this.lineToRender = this.line2;
+            this.lineToWriteTo = this.line1;
+        } else {
+            this.lineToRender = this.line1;
+            this.lineToWriteTo = this.line2;
+        }
+
         lineMaterial.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
         
         this.controls.update();
@@ -259,9 +269,9 @@ export class App {
             particle.update();
         }
 
-        const positions = this.line.geometry.lxMonkeyPatch.positions;
-        const colors = this.line.geometry.lxMonkeyPatch.colors;
-            
+        const positions = this.lineToWriteTo.geometry.lxMonkeyPatch.positions;
+        const colors = this.lineToWriteTo.geometry.lxMonkeyPatch.colors;
+        
         for(const particle of this.particles){
             for(let i=0;i<TAIL_LENGTH-1;i++){
                 let iCircular = (particle.newestIndex + TAIL_LENGTH - i);
@@ -291,15 +301,18 @@ export class App {
                 colors[positionIndex] = b;
             }
         }
-        this.line.geometry.getAttribute('instanceStart').needsUpdate = true;
-        this.line.geometry.getAttribute('instanceEnd').needsUpdate = true;
-        this.line.geometry.getAttribute('instanceColorStart').needsUpdate = true;
-        this.line.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
+        this.lineToWriteTo.geometry.getAttribute('instanceStart').needsUpdate = true;
+        this.lineToWriteTo.geometry.getAttribute('instanceEnd').needsUpdate = true;
+        this.lineToWriteTo.geometry.getAttribute('instanceColorStart').needsUpdate = true;
+        this.lineToWriteTo.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
+        
+        this.scene.add( this.lineToRender );
         
         //line.scale.set( 1, 1, 1 );
         
-
         this.composer.render();
+
+        this.scene.remove( this.lineToRender );
         //this.renderer.render(this.scene, this.camera);
         
         this.stats.update();
