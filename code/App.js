@@ -155,6 +155,9 @@ class Particle {
         colorFloatArray[writeIndex + 0] = this.color.r;
         colorFloatArray[writeIndex + 1] = this.color.g;
         colorFloatArray[writeIndex + 2] = this.color.b;
+        colorFloatArray[writeIndex + 3] = this.color.r;
+        colorFloatArray[writeIndex + 4] = this.color.g;
+        colorFloatArray[writeIndex + 5] = this.color.b;
 
         this.prevWriteIndex = writeIndex;
         
