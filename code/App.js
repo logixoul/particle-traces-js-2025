@@ -242,11 +242,10 @@ export class App {
             
         for(const particle of this.particles){
             for(let i=0;i<TAIL_LENGTH-1;i++){
-                let iCircular = (particle.newestIndex - i);
-                if(iCircular < 0) iCircular += TAIL_LENGTH;
+                let iCircular = (particle.newestIndex + TAIL_LENGTH - i);
                 iCircular %= TAIL_LENGTH;
-                let iPrevCircular = iCircular - 1;
-                if(iPrevCircular < 0) iPrevCircular += TAIL_LENGTH;
+                let iPrevCircular = particle.newestIndex + TAIL_LENGTH - i - 1;
+                iPrevCircular %= TAIL_LENGTH;
                 let brightness = this.weights[TAIL_LENGTH-i-1];
                 
                 let p1 = particle.oldPositions[iPrevCircular];
