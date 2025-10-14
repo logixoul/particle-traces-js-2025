@@ -153,6 +153,8 @@ class Particle {
 export class App {
     particles = [];
     constructor() {
+        this.lastTime = 0;
+
         //!!!!!!!!!!!!!!!!!!
         this.stats = new Stats();
         document.body.appendChild( this.stats.dom );
@@ -164,7 +166,7 @@ export class App {
 
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        window.r=this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( this.renderer.domElement );
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
@@ -172,8 +174,7 @@ export class App {
         this.camera.position.z = 1;
         this.controls.update();
 
-        this.renderer.setAnimationLoop( this.animate.bind(this) );
-        //window.setInterval( this.animate.bind(this), 1000/60 );
+
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
@@ -198,20 +199,12 @@ export class App {
         }
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.1;
+        //this.renderer.toneMapping = THREE.LinearToneMapping
+        //this.renderer.setPixelRatio(0.5);
         
-        this.vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
-        this.vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
-        this.geometry = new LineSegmentsGeometry();
-        //this.geometry.setUsage(THREE.StreamDrawUsage);
-        this.geometry.setPositions( this.vertexPositions );
-        this.geometry.setColors( this.vertexColors );
-        this.geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
-        this.geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
+        this.geometry = this.createLineGeometry();
+        
 
-        // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
-        this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, this.vertexPositions.length);
-        this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, this.vertexColors.length);
-        
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
@@ -223,9 +216,33 @@ export class App {
 
         this.line = new LineSegments2( this.geometry, lineMaterial );
         this.scene.add( this.line );
+
+        //this.renderer.setAnimationLoop( this.animate.bind(this) );
+        //this.animate();
+
+        requestAnimationFrame( this.animate.bind(this) );
+        //window.setInterval( this.animate.bind(this), 1000/60 );
+    }
+
+    createLineGeometry() {
+        const positions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
+        const colors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
+        const geometry = new LineSegmentsGeometry();
+        geometry.setPositions( positions );
+        geometry.setColors( colors );
+        geometry.lxMonkeyPatch = {
+            positions: positions,
+            colors: colors
+        }
+        geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
+        geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
+        return geometry;
     }
     
-    animate() {
+    animate(time) {
+        /*if (time - this.lastTime < 33) return requestAnimationFrame(this.animate.bind(this));
+        this.lastTime = time;*/
+
         lineMaterial.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
         
         this.controls.update();
@@ -239,6 +256,9 @@ export class App {
             }
             particle.update();
         }
+
+        const positions = this.geometry.lxMonkeyPatch.positions;
+        const colors = this.geometry.lxMonkeyPatch.colors;
             
         for(const particle of this.particles){
             for(let i=0;i<TAIL_LENGTH-1;i++){
@@ -255,18 +275,18 @@ export class App {
                 const g = c1.g * brightness;
                 const b = c1.b * brightness;
                 
-                this.vertexPositions[positionIndex++] = p1.x;
-                this.vertexColors[positionIndex] = r;
-                this.vertexPositions[positionIndex++] = p1.y;
-                this.vertexColors[positionIndex] = g;
-                this.vertexPositions[positionIndex++] = p1.z;
-                this.vertexColors[positionIndex] = b;
-                this.vertexPositions[positionIndex++] = p2.x;
-                this.vertexColors[positionIndex] = r;
-                this.vertexPositions[positionIndex++] = p2.y;
-                this.vertexColors[positionIndex] = g;
-                this.vertexPositions[positionIndex++] = p2.z;
-                this.vertexColors[positionIndex] = b;
+                positions[positionIndex++] = p1.x;
+                colors[positionIndex] = r;
+                positions[positionIndex++] = p1.y;
+                colors[positionIndex] = g;
+                positions[positionIndex++] = p1.z;
+                colors[positionIndex] = b;
+                positions[positionIndex++] = p2.x;
+                colors[positionIndex] = r;
+                positions[positionIndex++] = p2.y;
+                colors[positionIndex] = g;
+                positions[positionIndex++] = p2.z;
+                colors[positionIndex] = b;
             }
         }
         this.geometry.getAttribute('instanceStart').needsUpdate = true;
@@ -278,7 +298,10 @@ export class App {
         
 
         this.composer.render();
+        //this.renderer.render(this.scene, this.camera);
         
         this.stats.update();
+
+        requestAnimationFrame( this.animate.bind(this) );
     }
 }
