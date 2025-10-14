@@ -1,4 +1,3 @@
-//import { AudioThreadManager } from "./AudioThreadManager.js";
 import * as THREE from 'three'
 import * as SimplexNoise from 'simplex-noise';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
@@ -6,27 +5,14 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
-import { SAOPass } from 'three/addons/postprocessing/SAOPass.js';
-import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
-import { DotScreenPass } from 'three/addons/postprocessing/DotScreenPass.js';
-import { MaskPass, ClearMaskPass } from 'three/addons/postprocessing/MaskPass.js';
-import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
 
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 
-import { BleachBypassShader } from 'three/addons/shaders/BleachBypassShader.js';
-import { ColorifyShader } from 'three/addons/shaders/ColorifyShader.js';
-import { HorizontalBlurShader } from 'three/addons/shaders/HorizontalBlurShader.js';
-import { VerticalBlurShader } from 'three/addons/shaders/VerticalBlurShader.js';
-import { SepiaShader } from 'three/addons/shaders/SepiaShader.js';
-import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
-import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 // monkey patch for optimization:
@@ -38,9 +24,7 @@ LineSegmentsGeometry.prototype.computeBoundingBox = function () {
         this.boundingBox = new THREE.Box3(new THREE.Vector3( Infinity, Infinity, Infinity ), new THREE.Vector3( -Infinity, -Infinity, -Infinity ) );
     }
 };
-/*class Global {
 
-}*/
 LineSegmentsGeometry.prototype.setPositions = function( array ) {
 
 		let lineSegments;
@@ -108,50 +92,84 @@ function curlNoise3D(dstVector, x, y, z, noiseFn, eps = 1e-4) {
 const TAIL_LENGTH = 100;
 const LIFESPAN = 1000;
 class Particle {
-    constructor() {
-        this.oldPositions = new Array(TAIL_LENGTH);
-        this.oldColors = new Array(TAIL_LENGTH);
-        for (let i = 0; i < TAIL_LENGTH; i++) {
-            this.oldPositions[i] = new THREE.Vector3();
-            this.oldColors[i] = new THREE.Color();
-        }
+    constructor(positionFloatArray, colorFloatArray, particleIndex) {
+        this.position = new THREE.Vector3();
+        this.color = new THREE.Color();
         this.velocity = new THREE.Vector3();
-        this.reinit();
+        this.prevPosition = new THREE.Vector3();
+        this.prevColor = new THREE.Color();
+        this.particleIndex = particleIndex;
+        this.reinit(positionFloatArray, colorFloatArray);
     }
-    reinit() {
-        this.newestIndex = 0;
+    writePosition(positionFloatArray, index, position) {
+        positionFloatArray[index++] = position.x;
+        positionFloatArray[index++] = position.y;
+        positionFloatArray[index++] = position.z;
+        return index;
+    }
+    reinit(positionFloatArray, colorFloatArray) {
+        this.queueFront = 0;
+        this.prevWriteIndex = this.calcWriteIndex(this.queueFront);
         this.age = 0;
 
-        let position = this.oldPositions[this.newestIndex];
-        position.set(Math.random(), Math.random(), Math.random());
-        position.subScalar(0.5);
+        this.position.set(Math.random(), Math.random(), Math.random());
+        this.position.subScalar(0.5);
+        this.prevPosition.copy(this.position);
+        this.prevColor.copy(this.color);
         this.remainingLife = Math.floor(Math.random() * LIFESPAN);
 
-        for (let i = 0; i < TAIL_LENGTH; i++) {
-            this.update();
-        }
+        //for (let i = 0; i < TAIL_LENGTH; i++) {
+            //this.update(positionFloatArray, colorFloatArray);
+        //}
     }
-    update() {
-        let position = this.oldPositions[this.newestIndex];
+    calcWriteIndex(i) {
+        const iWrapped = i;// % TAIL_LENGTH;
+        return (this.particleIndex * TAIL_LENGTH + iWrapped) * 3 * 2;
+    }
+
+    update(positionFloatArray, colorFloatArray) {
+        this.prevPosition.copy(this.position);
+        this.prevColor.copy(this.color);
         
-        this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
-        let color = this.oldColors[this.newestIndex];
+        let writeIndex = this.calcWriteIndex(this.queueFront);
+        /*if(this.age != 0) {
+            this.prevPosition.set(positionFloatArray[writeIndex + 0], positionFloatArray[writeIndex + 1], positionFloatArray[writeIndex + 2]);
+        } else {
+            this.prevPosition.copy(this.position);
+        }*/
+        this.queueFront = (this.queueFront + 1) % TAIL_LENGTH;
+        writeIndex = this.calcWriteIndex(this.queueFront);
+
+        
+        //this.color = new THREE.Color();
         let noiseScale = 0.3;
-        curlNoise3D(this.velocity, position.x * noiseScale, position.y * noiseScale, position.z * noiseScale, noise3D);
+        curlNoise3D(this.velocity, this.position.x * noiseScale, this.position.y * noiseScale, this.position.z * noiseScale, noise3D);
         this.velocity.multiplyScalar(0.01);
-        color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
-        this.oldPositions[this.newestIndex].copy(position);
-        
-        //this.oldColors[this.newestIndex].copy(color);
-        this.oldPositions[this.newestIndex].add(this.velocity);
+        this.color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
+        this.position.add(this.velocity);
         this.age++;
         this.remainingLife--;
+
+        //positionFloatArray.copyWithin(writeIndex, this.prevWriteIndex, this.prevWriteIndex + 3);
+        positionFloatArray.set(this.prevPosition.toArray(), writeIndex + 0);
+        positionFloatArray.set(this.position.toArray(), writeIndex + 3);
+        //colorFloatArray.set(this.prevColor.toArray(), writeIndex + 0);
+        //colorFloatArray.set(this.color.toArray(), writeIndex + 3);
+        colorFloatArray[writeIndex + 0] = this.prevColor.r;
+        colorFloatArray[writeIndex + 1] = this.prevColor.g;
+        colorFloatArray[writeIndex + 2] = this.prevColor.b;
+        colorFloatArray[writeIndex + 3] = this.color.r;
+        colorFloatArray[writeIndex + 4] = this.color.g;
+        colorFloatArray[writeIndex + 5] = this.color.b;
+
+        this.prevWriteIndex = writeIndex;
+        
     }
     dispose() {
         this.material.dispose();
     }
 }
-
+const t0 = performance.now();
 export class App {
     particles = [];
     constructor() {
@@ -159,9 +177,12 @@ export class App {
         this.stats = new Stats();
         document.body.appendChild( this.stats.dom );
         //!!!!!!!!!!!!!!!!!!
-
-        for (let i = 0; i < 1000; i++) {
-            this.particles.push(new Particle());
+        const PARTICLE_COUNT = 1000;
+        this.vertexPositions = new Float32Array( TAIL_LENGTH*PARTICLE_COUNT * 3 * 2 );
+        this.vertexColors = new Float32Array( TAIL_LENGTH*PARTICLE_COUNT * 3 * 2);
+        
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            this.particles.push(new Particle(this.vertexPositions, this.vertexColors, i));
         }
 
         this.scene = new THREE.Scene();
@@ -212,24 +233,22 @@ export class App {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.1;
         
-        this.vertexPositions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
-        this.vertexColors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         this.geometry = new LineSegmentsGeometry();
         //this.geometry.setUsage(THREE.StreamDrawUsage);
         this.geometry.setPositions( this.vertexPositions );
         this.geometry.setColors( this.vertexColors );
-        this.geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
-        this.geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
+        //this.geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
+        //this.geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
 
         // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
-        this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, this.vertexPositions.length);
-        this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, this.vertexColors.length);
+        //this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, this.vertexPositions.length);
+        //this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, this.vertexColors.length);
         
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
             let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-2?100.5:0.0;
+            let add = i==TAIL_LENGTH-1?100.5:0.0;
             brightness += add;
             this.weights.push(brightness);
         }
@@ -243,51 +262,29 @@ export class App {
         
         this.controls.update();
 
-        //let toDispose = [];
-        let positionIndex = 0; // vertex index
-
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
             let particle = this.particles[particleIndex];
             if (particle.remainingLife == 0) {
-                particle.reinit();
+                particle.reinit(this.vertexPositions, this.vertexColors);
             }
-            particle.update();
+            particle.update(this.vertexPositions, this.vertexColors);
         }
-        for(let i=0;i<TAIL_LENGTH-1;i++){
-            let iCircular = (this.particles[0].newestIndex - i);
-            if(iCircular < 0) iCircular += TAIL_LENGTH;
-            iCircular %= TAIL_LENGTH;
-            let iNextCircular = iCircular - 1;
-            if(iNextCircular < 0) iNextCircular += TAIL_LENGTH;
-                
+        let positionIndex = 0; // vertex index
+
+        /*for(let i=0;i<TAIL_LENGTH-1;i++){
+            let brightness = this.weights[TAIL_LENGTH-i-1];
             for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
-                let particle = this.particles[particleIndex];
+                positionIndex = this.particles[particleIndex].calcWriteIndex(i);
         
-                let p1 = particle.oldPositions[iCircular];
-                let c1 = particle.oldColors[iCircular];
-                let p2 = particle.oldPositions[iNextCircular];
-                let brightness = this.weights[TAIL_LENGTH-i-1];
-                this.vertexPositions[positionIndex++] = p1.x;
-                this.vertexColors[positionIndex] = c1.r * brightness;
-                this.vertexPositions[positionIndex++] = p1.y;
-                this.vertexColors[positionIndex] = c1.g * brightness;
-                this.vertexPositions[positionIndex++] = p1.z;
-                this.vertexColors[positionIndex] = c1.b * brightness;
-                this.vertexPositions[positionIndex++] = p2.x;
-                this.vertexColors[positionIndex] = c1.r * brightness;
-                this.vertexPositions[positionIndex++] = p2.y;
-                this.vertexColors[positionIndex] = c1.g * brightness;
-                this.vertexPositions[positionIndex++] = p2.z;
-                this.vertexColors[positionIndex] = c1.b * brightness;
+                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[positionIndex++] *= brightness;
             }
-        }
-        // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
-        const numFloatsToUpdate = this.particles.length * 3 * 2;
-        //this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, numFloatsToUpdate);
-        //this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, numFloatsToUpdate);
+        }*/
         
-        //this.geometry.getAttribute('instanceStart').data.array = this.vertexPositions;
-        //this.geometry.getAttribute('instanceColorStart').data.array = this.vertexColors;
 
         this.geometry.getAttribute('instanceStart').needsUpdate = true;
         this.geometry.getAttribute('instanceEnd').needsUpdate = true;
@@ -297,40 +294,17 @@ export class App {
         //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );
 
-        // copy arrays first (same as above)
-// get the InterleavedBuffer that LineSegmentsGeometry created
-/*const instStartAttr = this.geometry.getAttribute('instanceStart'); // InterleavedBufferAttribute
-const instColorStartAttr = this.geometry.getAttribute('instanceColorStart');
-const interleavedPos = instStartAttr.data;      // InstancedInterleavedBuffer
-const interleavedColor = instColorStartAttr.data;
-interleavedPos.array.set(this.vertexPositions);
-interleavedColor.array.set(this.vertexColors);
-
-// manual orphan then let Three.js upload on next update
-const gl = this.renderer.getContext();
-
-// get the WebGLBuffer wrapper that Three.js uses internally
-const webglPos = this.renderer.attributes.get(interleavedPos);
-const webglColor = this.renderer.attributes.get(interleavedColor);
-
-// orphan the underlying GL buffers
-gl.bindBuffer(gl.ARRAY_BUFFER, webglPos.buffer);
-gl.bufferData(gl.ARRAY_BUFFER, interleavedPos.array.byteLength, gl.DYNAMIC_DRAW);
-
-gl.bindBuffer(gl.ARRAY_BUFFER, webglColor.buffer);
-gl.bufferData(gl.ARRAY_BUFFER, interleavedColor.array.byteLength, gl.DYNAMIC_DRAW);
-
-// mark for update so Three.js will upload the new contents
-interleavedPos.needsUpdate = true;
-interleavedColor.needsUpdate = true;*/
-        
 
         this.composer.render();
-        
-        /*for(let objectToDispose of toDispose){
-            objectToDispose.dispose();
-        }*/
+        //this.renderer.render( this.scene, this.camera );
 
+        const t1 = performance.now();
+        const dt = t1 - this.t0;
+        if (dt > 90) { // threshold in ms (60fps ~ 16.6ms)
+        console.warn('Slow frame:', dt, 'ms');
+        }
+        
         this.stats.update();
+        this.t0 = t1;
     }
 }
