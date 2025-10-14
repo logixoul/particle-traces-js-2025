@@ -121,12 +121,12 @@ class Particle {
         //}
     }
     calcPositionBufferIndex(i) {
-        const iWrapped = i;// % TAIL_LENGTH;
+        const iWrapped = i;
         return (this.particleIndex * TAIL_LENGTH + iWrapped) * 3 * 2;
     }
     calcColorBufferIndex(i) {
-        const iWrapped = i;// % TAIL_LENGTH;
-        return (this.particleIndex * TAIL_LENGTH + iWrapped) * 3;
+        const iWrapped = i;
+        return (this.particleIndex * TAIL_LENGTH + iWrapped) * 4;
     }
     
 
@@ -160,8 +160,9 @@ class Particle {
         colorFloatArray[colBufferIndex + 0] = this.color.r;
         colorFloatArray[colBufferIndex + 1] = this.color.g;
         colorFloatArray[colBufferIndex + 2] = this.color.b;
+        //colorFloatArray[colBufferIndex + 3] = 1.1;
         
-        this.prevposBufferIndex = posBufferIndex;
+        this.prevPosBufferIndex = posBufferIndex;
         
     }
     dispose() {
@@ -176,9 +177,9 @@ export class App {
         this.stats = new Stats();
         document.body.appendChild( this.stats.dom );
         //!!!!!!!!!!!!!!!!!!
-        const PARTICLE_COUNT = 1000;
+        const PARTICLE_COUNT = 100;
         this.vertexPositions = new Float32Array( TAIL_LENGTH*PARTICLE_COUNT * 3 * 2 );
-        this.vertexColors = new Float32Array( TAIL_LENGTH*PARTICLE_COUNT * 3 * 2);
+        this.vertexColors = new Float32Array( TAIL_LENGTH*PARTICLE_COUNT * 4);
         
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             this.particles.push(new Particle(this.vertexPositions, this.vertexColors, i));
@@ -247,7 +248,7 @@ export class App {
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
             let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-1?100.5:0.0;
+            let add = i==TAIL_LENGTH-2?100.5:0.0;
             brightness += add;
             this.weights.push(brightness);
         }
@@ -268,21 +269,18 @@ export class App {
             }
             particle.update(this.vertexPositions, this.vertexColors);
         }
-        let positionIndex = 0; // vertex index
-
-        /*for(let i=0;i<TAIL_LENGTH-1;i++){
+        for(let i=0;i<TAIL_LENGTH;i++){
             let brightness = this.weights[TAIL_LENGTH-i-1];
             for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
-                positionIndex = this.particles[particleIndex].calcPositionBufferIndex(i);
+                let particle = this.particles[particleIndex];
+                let iWrapped = particle.queueFront+i;
+                if (iWrapped < 0) iWrapped += TAIL_LENGTH;
+                iWrapped %= TAIL_LENGTH;
+                const colorBufferIndex = this.particles[particleIndex].calcColorBufferIndex(iWrapped);
         
-                this.vertexColors[positionIndex++] *= brightness;
-                this.vertexColors[positionIndex++] *= brightness;
-                this.vertexColors[positionIndex++] *= brightness;
-                this.vertexColors[positionIndex++] *= brightness;
-                this.vertexColors[positionIndex++] *= brightness;
-                this.vertexColors[positionIndex++] *= brightness;
+                this.vertexColors[colorBufferIndex+3] = brightness;
             }
-        }*/
+        }
         
 
         this.geometry.getAttribute('instanceStart').needsUpdate = true;

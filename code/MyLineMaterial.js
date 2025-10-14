@@ -18,7 +18,7 @@ UniformsLib.line = {
 
 };
 
-ShaderLib[ 'line' ] = {
+ShaderLib[ 'lxline' ] = {
 
 	uniforms: UniformsUtils.merge( [
 		UniformsLib.common,
@@ -40,7 +40,7 @@ ShaderLib[ 'line' ] = {
 		attribute vec3 instanceStart;
 		attribute vec3 instanceEnd;
 
-		attribute vec3 instanceColorStart;
+		attribute vec4 instanceColorStart;
 		attribute vec3 instanceColorEnd;
 
 		#ifdef WORLD_UNITS
@@ -89,7 +89,7 @@ ShaderLib[ 'line' ] = {
 
 			#ifdef USE_COLOR
 
-				vColor.xyz = ( position.y < 0.5 ) ? instanceColorStart : instanceColorEnd;
+				vColor.xyzw = instanceColorStart; // lx
 
 			#endif
 
@@ -391,13 +391,12 @@ ShaderLib[ 'line' ] = {
 			#include <logdepthbuf_fragment>
 			#include <color_fragment>
 
-			gl_FragColor = vec4( diffuseColor.rgb, alpha );
+			gl_FragColor = vec4( diffuseColor.rgb, alpha ) * vColor;
 
 			#include <tonemapping_fragment>
 			#include <colorspace_fragment>
 			#include <fog_fragment>
 			#include <premultiplied_alpha_fragment>
-
 		}
 		`
 };
@@ -430,10 +429,10 @@ class LineMaterial extends ShaderMaterial {
 		super( {
 
 			type: 'LineMaterial',
-			uniforms: UniformsUtils.clone( ShaderLib[ 'line' ].uniforms ),
+			uniforms: UniformsUtils.clone( ShaderLib[ 'lxline' ].uniforms ),
 
-			vertexShader: ShaderLib[ 'line' ].vertexShader,
-			fragmentShader: ShaderLib[ 'line' ].fragmentShader,
+			vertexShader: ShaderLib[ 'lxline' ].vertexShader,
+			fragmentShader: ShaderLib[ 'lxline' ].fragmentShader,
 
 			clipping: true // required for clipping support
 
@@ -449,7 +448,8 @@ class LineMaterial extends ShaderMaterial {
 		this.isLineMaterial = true;
 
 		this.setValues( parameters );
-
+		this.defines[ 'USE_COLOR_ALPHA' ] = '1'; // lx
+		this.needsUpdate = true; //lx
 	}
 
 	/**
