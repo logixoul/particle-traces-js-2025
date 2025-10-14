@@ -239,15 +239,15 @@ export class App {
             }
             particle.update();
         }
-        for(let i=0;i<TAIL_LENGTH-1;i++){
-            let iCircular = (this.particles[0].newestIndex - i);
-            if(iCircular < 0) iCircular += TAIL_LENGTH;
-            iCircular %= TAIL_LENGTH;
-            let iPrevCircular = iCircular - 1;
-            if(iPrevCircular < 0) iPrevCircular += TAIL_LENGTH;
-            let brightness = this.weights[TAIL_LENGTH-i-1];
             
-            for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
+        for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
+            for(let i=0;i<TAIL_LENGTH-1;i++){
+                let iCircular = (this.particles[particleIndex].newestIndex - i);
+                if(iCircular < 0) iCircular += TAIL_LENGTH;
+                iCircular %= TAIL_LENGTH;
+                let iPrevCircular = iCircular - 1;
+                if(iPrevCircular < 0) iPrevCircular += TAIL_LENGTH;
+                let brightness = this.weights[TAIL_LENGTH-i-1];
                 let particle = this.particles[particleIndex];
         
                 let p1 = particle.oldPositions[iPrevCircular];
