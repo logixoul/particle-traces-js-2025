@@ -202,7 +202,7 @@ export class App {
         //this.renderer.toneMapping = THREE.LinearToneMapping
         //this.renderer.setPixelRatio(0.5);
         
-        this.geometry = this.createLineGeometry();
+        this.line = this.createLine();
         
 
         this.weights = [];
@@ -214,7 +214,7 @@ export class App {
             this.weights.push(brightness);
         }
 
-        this.line = new LineSegments2( this.geometry, lineMaterial );
+        //this.line = new LineSegments2( this.geometry, lineMaterial );
         this.scene.add( this.line );
 
         //this.renderer.setAnimationLoop( this.animate.bind(this) );
@@ -224,7 +224,7 @@ export class App {
         //window.setInterval( this.animate.bind(this), 1000/60 );
     }
 
-    createLineGeometry() {
+    createLine() {
         const positions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
         const colors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
         const geometry = new LineSegmentsGeometry();
@@ -236,7 +236,9 @@ export class App {
         }
         geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
         geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
-        return geometry;
+
+        const line = new LineSegments2( geometry, lineMaterial );
+        return line;
     }
     
     animate(time) {
@@ -257,8 +259,8 @@ export class App {
             particle.update();
         }
 
-        const positions = this.geometry.lxMonkeyPatch.positions;
-        const colors = this.geometry.lxMonkeyPatch.colors;
+        const positions = this.line.geometry.lxMonkeyPatch.positions;
+        const colors = this.line.geometry.lxMonkeyPatch.colors;
             
         for(const particle of this.particles){
             for(let i=0;i<TAIL_LENGTH-1;i++){
@@ -289,10 +291,10 @@ export class App {
                 colors[positionIndex] = b;
             }
         }
-        this.geometry.getAttribute('instanceStart').needsUpdate = true;
-        this.geometry.getAttribute('instanceEnd').needsUpdate = true;
-        this.geometry.getAttribute('instanceColorStart').needsUpdate = true;
-        this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
+        this.line.geometry.getAttribute('instanceStart').needsUpdate = true;
+        this.line.geometry.getAttribute('instanceEnd').needsUpdate = true;
+        this.line.geometry.getAttribute('instanceColorStart').needsUpdate = true;
+        this.line.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
         
         //line.scale.set( 1, 1, 1 );
         
