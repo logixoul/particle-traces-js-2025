@@ -216,7 +216,7 @@ export class App {
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
             let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-1?100.5:0.0;
+            let add = i==TAIL_LENGTH-2||i==TAIL_LENGTH-1?100.5:0.0;
             brightness += add;
             this.weights.push(brightness);
         }
@@ -253,18 +253,22 @@ export class App {
                 let p1 = particle.oldPositions[iPrevCircular];
                 let c1 = particle.oldColors[iPrevCircular];
                 let p2 = particle.oldPositions[iCircular];
+                const r = c1.r * brightness;
+                const g = c1.g * brightness;
+                const b = c1.b * brightness;
+                
                 this.vertexPositions[positionIndex++] = p1.x;
-                this.vertexColors[positionIndex] = c1.r * brightness;
+                this.vertexColors[positionIndex] = r;
                 this.vertexPositions[positionIndex++] = p1.y;
-                this.vertexColors[positionIndex] = c1.g * brightness;
+                this.vertexColors[positionIndex] = g;
                 this.vertexPositions[positionIndex++] = p1.z;
-                this.vertexColors[positionIndex] = c1.b * brightness;
+                this.vertexColors[positionIndex] = b;
                 this.vertexPositions[positionIndex++] = p2.x;
-                this.vertexColors[positionIndex] = c1.r * brightness;
+                this.vertexColors[positionIndex] = r;
                 this.vertexPositions[positionIndex++] = p2.y;
-                this.vertexColors[positionIndex] = c1.g * brightness;
+                this.vertexColors[positionIndex] = g;
                 this.vertexPositions[positionIndex++] = p2.z;
-                this.vertexColors[positionIndex] = c1.b * brightness;
+                this.vertexColors[positionIndex] = b;
             }
         }
         this.geometry.getAttribute('instanceStart').needsUpdate = true;
