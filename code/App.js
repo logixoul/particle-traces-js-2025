@@ -7,7 +7,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineMaterial } from 'MyLineMaterial';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
@@ -155,9 +155,6 @@ class Particle {
         colorFloatArray[writeIndex + 0] = this.color.r;
         colorFloatArray[writeIndex + 1] = this.color.g;
         colorFloatArray[writeIndex + 2] = this.color.b;
-        colorFloatArray[writeIndex + 3] = this.color.r;
-        colorFloatArray[writeIndex + 4] = this.color.g;
-        colorFloatArray[writeIndex + 5] = this.color.b;
 
         this.prevWriteIndex = writeIndex;
         
