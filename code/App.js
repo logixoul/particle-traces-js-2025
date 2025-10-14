@@ -116,15 +116,15 @@ class Particle {
             this.oldColors[i] = new THREE.Color();
         }
         this.velocity = new THREE.Vector3();
+        this.newestIndex = 0;
         this.reinit();
     }
     reinit() {
-        this.newestIndex = 0;
         this.age = 0;
 
-        let position = this.oldPositions[this.newestIndex];
-        position.set(Math.random(), Math.random(), Math.random());
-        position.subScalar(0.5);
+        let positionRef = this.oldPositions[this.newestIndex];
+        positionRef.set(Math.random(), Math.random(), Math.random());
+        positionRef.subScalar(0.5);
         this.remainingLife = Math.floor(Math.random() * LIFESPAN);
 
         for (let i = 0; i < TAIL_LENGTH; i++) {
@@ -133,16 +133,14 @@ class Particle {
     }
     update() {
         let position = this.oldPositions[this.newestIndex];
+        let colorRef = this.oldColors[this.newestIndex];
         
         this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
-        let color = this.oldColors[this.newestIndex];
         let noiseScale = 0.3;
         curlNoise3D(this.velocity, position.x * noiseScale, position.y * noiseScale, position.z * noiseScale, noise3D);
         this.velocity.multiplyScalar(0.01);
-        color.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
+        colorRef.setHSL((Math.atan2(this.velocity.y, this.velocity.x)/Math.PI+1)*.5, 1, 0.5);
         this.oldPositions[this.newestIndex].copy(position);
-        
-        //this.oldColors[this.newestIndex].copy(color);
         this.oldPositions[this.newestIndex].add(this.velocity);
         this.age++;
         this.remainingLife--;
@@ -179,31 +177,20 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
-        /*const ssao = new SSAOPass( this.scene, this.camera, window.innerWidth, window.innerHeight );
-        ssao.output = SSAOPass.OUTPUT.Default;
-        ssao.kernelRadius = 2;
-        ssao.saoBias = 0.5;
-        ssao.saoIntensity = 1.0;
-        //ssao.kernelRadius = 16;
-        ssao.minDistance = 0.005;
-        ssao.maxDistance = 0.1;
-        this.composer.addPass( ssao );*/
-
-        let bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.5 );
-		this.composer.addPass( bloomPass );
-        //let bleachBypassPass = new ShaderPass( BleachBypassShader );
-        //bleachBypassPass.uniforms['opacity'].value = 0.8;
-        //this.composer.addPass( bleachBypassPass );
-        /*let BokehPass1 = new BokehPass( this.scene, this.camera, {
+       
+		/*let bleachBypassPass = new ShaderPass( BleachBypassShader );
+        bleachBypassPass.uniforms['opacity'].value = 0.8;
+        //bleachBypassPass.
+        this.composer.addPass( bleachBypassPass );*/
+        if(false)this.composer.addPass( new BokehPass( this.scene, this.camera, {
             focus: 0.5,
-            aperture: 0.025,
+            aperture: 5*0.00001,
             maxblur: 0.01,
             width: window.innerWidth,
             height: window.innerHeight
-        } );
-        this.composer.addPass( BokehPass1 );*/
-		const effect3 = new OutputPass();
-		this.composer.addPass( effect3 );
+        } ) );
+		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.5 ) );
+        this.composer.addPass( new OutputPass() );
 
         if ( false&&this.renderer.getContext() instanceof WebGL2RenderingContext ) {
             this.composer.renderTarget1.samples = 8;
@@ -229,7 +216,7 @@ export class App {
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
             let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-2?100.5:0.0;
+            let add = i==TAIL_LENGTH-1?100.5:0.0;
             brightness += add;
             this.weights.push(brightness);
         }
@@ -243,7 +230,6 @@ export class App {
         
         this.controls.update();
 
-        //let toDispose = [];
         let positionIndex = 0; // vertex index
 
         for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
@@ -257,16 +243,16 @@ export class App {
             let iCircular = (this.particles[0].newestIndex - i);
             if(iCircular < 0) iCircular += TAIL_LENGTH;
             iCircular %= TAIL_LENGTH;
-            let iNextCircular = iCircular - 1;
-            if(iNextCircular < 0) iNextCircular += TAIL_LENGTH;
-                
+            let iPrevCircular = iCircular - 1;
+            if(iPrevCircular < 0) iPrevCircular += TAIL_LENGTH;
+            let brightness = this.weights[TAIL_LENGTH-i-1];
+            
             for(let particleIndex=0;particleIndex<this.particles.length;particleIndex++){
                 let particle = this.particles[particleIndex];
         
-                let p1 = particle.oldPositions[iCircular];
-                let c1 = particle.oldColors[iCircular];
-                let p2 = particle.oldPositions[iNextCircular];
-                let brightness = this.weights[TAIL_LENGTH-i-1];
+                let p1 = particle.oldPositions[iPrevCircular];
+                let c1 = particle.oldColors[iPrevCircular];
+                let p2 = particle.oldPositions[iCircular];
                 this.vertexPositions[positionIndex++] = p1.x;
                 this.vertexColors[positionIndex] = c1.r * brightness;
                 this.vertexPositions[positionIndex++] = p1.y;
@@ -281,56 +267,16 @@ export class App {
                 this.vertexColors[positionIndex] = c1.b * brightness;
             }
         }
-        // these 2 lines reduce the once-every-20ish-frames lag for whatever reason
-        const numFloatsToUpdate = this.particles.length * 3 * 2;
-        //this.geometry.getAttribute('instanceStart').data.addUpdateRange(0, numFloatsToUpdate);
-        //this.geometry.getAttribute('instanceColorStart').data.addUpdateRange(0, numFloatsToUpdate);
-        
-        //this.geometry.getAttribute('instanceStart').data.array = this.vertexPositions;
-        //this.geometry.getAttribute('instanceColorStart').data.array = this.vertexColors;
-
         this.geometry.getAttribute('instanceStart').needsUpdate = true;
         this.geometry.getAttribute('instanceEnd').needsUpdate = true;
         this.geometry.getAttribute('instanceColorStart').needsUpdate = true;
         this.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
         
-        //toDispose.push(line);
         //line.scale.set( 1, 1, 1 );
-
-        // copy arrays first (same as above)
-// get the InterleavedBuffer that LineSegmentsGeometry created
-/*const instStartAttr = this.geometry.getAttribute('instanceStart'); // InterleavedBufferAttribute
-const instColorStartAttr = this.geometry.getAttribute('instanceColorStart');
-const interleavedPos = instStartAttr.data;      // InstancedInterleavedBuffer
-const interleavedColor = instColorStartAttr.data;
-interleavedPos.array.set(this.vertexPositions);
-interleavedColor.array.set(this.vertexColors);
-
-// manual orphan then let Three.js upload on next update
-const gl = this.renderer.getContext();
-
-// get the WebGLBuffer wrapper that Three.js uses internally
-const webglPos = this.renderer.attributes.get(interleavedPos);
-const webglColor = this.renderer.attributes.get(interleavedColor);
-
-// orphan the underlying GL buffers
-gl.bindBuffer(gl.ARRAY_BUFFER, webglPos.buffer);
-gl.bufferData(gl.ARRAY_BUFFER, interleavedPos.array.byteLength, gl.DYNAMIC_DRAW);
-
-gl.bindBuffer(gl.ARRAY_BUFFER, webglColor.buffer);
-gl.bufferData(gl.ARRAY_BUFFER, interleavedColor.array.byteLength, gl.DYNAMIC_DRAW);
-
-// mark for update so Three.js will upload the new contents
-interleavedPos.needsUpdate = true;
-interleavedColor.needsUpdate = true;*/
         
 
         this.composer.render();
         
-        /*for(let objectToDispose of toDispose){
-            objectToDispose.dispose();
-        }*/
-
         this.stats.update();
     }
 }
