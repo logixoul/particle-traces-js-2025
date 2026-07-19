@@ -98,7 +98,7 @@ export function myBeveledLineNoOverlap(points, colors, widthFn, camera) {
     const mvpMatrix = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse);
     const pointsClipSpace = points.map(p => {
         const transformed = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(mvpMatrix);
-        return { x: transformed.x / transformed.w, y: transformed.y / transformed.w, z: transformed.z / transformed.w };
+        return new THREE.Vector3(transformed.x / transformed.w, transformed.y / transformed.w, transformed.z*.5+.51);
     });
 
     const segN = [];
@@ -108,33 +108,47 @@ export function myBeveledLineNoOverlap(points, colors, widthFn, camera) {
         const l = Math.hypot(dx, dy) || 1;
         segN[i] = { x: -dy / l, y: dx / l };
     }
-
+    const pointN = [];
+    pointN.push(new THREE.Vector3(segN[0].x, segN[0].y, 0.0));
+    for (let i = 1; i < n - 1; i++) {
+        const sz = 0.01/pointsClipSpace[i].z;
+        const nPrev = segN[i - 1], nNext = segN[i];
+        const nAvg = new THREE.Vector3((nPrev.x + nNext.x) * 0.5, (nPrev.y + nNext.y) * 0.5, 0.0);
+        nAvg.normalize();
+        nAvg.multiplyScalar(sz);
+        pointN.push(nAvg);
+    }
+    pointN.push(new THREE.Vector3(segN[n - 2].x, segN[n - 2].y, 0.0));
+    
     const verts = []; // x,y,z flat
     const vertsC = []; // x,y,z flat
     const idx = [];
-    const add = (x, y, z, r, g, b) => { verts.push(x, y, z); vertsC.push(r, g, b); return verts.length / 3 - 1; };
+    const add2 = (p, c) => { verts.push(p.x, p.y, p.z); vertsC.push(c.r, c.g, c.b); return verts.length / 3 - 1; };
 
-    for (let i = 1; i < n - 1; i++) {
+    for (let i = 1; i < n; i++) {
+        const pPrev = pointsClipSpace[i - 1];
         const p = pointsClipSpace[i];
-        const nPrev = segN[i - 1], nNext = segN[i];
         const cPrev = colors[i - 1];
         //const p1 = new THREE.Vector3(p.x - 0.01, p.y + 0.01, p.z);
 
-
-        const sz = 1.0/100.0;//10.0/points[i].z;
+        const beginLeft = pPrev.clone().sub(pointN[i - 1]);
+        const beginRight = pPrev.clone().add(pointN[i - 1]);
+        const endLeft = p.clone().sub(pointN[i]);
+        const endRight = p.clone().add(pointN[i]);
+        
         let thisIdx;
-        thisIdx = add(p.x - sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(beginLeft, cPrev);
         idx.push(thisIdx);
-        thisIdx = add(p.x + sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(beginRight, cPrev);
         idx.push(thisIdx);
-        thisIdx = add(p.x + sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(endRight, cPrev);
         idx.push(thisIdx);
 
-        thisIdx = add(p.x - sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(beginLeft, cPrev);
         idx.push(thisIdx);
-        thisIdx = add(p.x - sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(endLeft, cPrev);
         idx.push(thisIdx);
-        thisIdx = add(p.x + sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        thisIdx = add2(endRight, cPrev);
         idx.push(thisIdx);
     }
 

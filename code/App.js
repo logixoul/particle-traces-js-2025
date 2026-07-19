@@ -144,7 +144,7 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
 
-        this.camera2D = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        this.camera2D = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
 
         this.composer.addPass( new RenderPass( this.scene, this.camera2D ) );
        
