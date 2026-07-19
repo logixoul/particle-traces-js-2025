@@ -88,88 +88,60 @@ export function beveledLineNoOverlap(points, colors, widthFn) {
     return geo;
 }
 
-
-export function myBeveledLineNoOverlap(points, widthFn) {
+export function myBeveledLineNoOverlap(points, colors, widthFn, camera) {
     // points: [{x,y,z},...] z is used only for width
     // widthFn: (z)=> width in world units
     const n = points.length;
     if (n < 2) return null;
 
-    const w = points.map(p => widthFn(p.z));
+    camera.updateMatrixWorld();
+    const mvpMatrix = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse);
+    const pointsClipSpace = points.map(p => {
+        const transformed = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(mvpMatrix);
+        return { x: transformed.x / transformed.w, y: transformed.y / transformed.w, z: transformed.z / transformed.w };
+    });
+
     const segN = [];
     for (let i = 0; i < n - 1; i++) {
-        const dx = points[i + 1].x - points[i].x;
-        const dy = points[i + 1].y - points[i].y;
+        const dx = pointsClipSpace[i + 1].x - pointsClipSpace[i].x;
+        const dy = pointsClipSpace[i + 1].y - pointsClipSpace[i].y;
         const l = Math.hypot(dx, dy) || 1;
         segN[i] = { x: -dy / l, y: dx / l };
     }
 
     const verts = []; // x,y,z flat
+    const vertsC = []; // x,y,z flat
     const idx = [];
-    const add = (x, y, z) => { verts.push(x, y, z); return verts.length / 3 - 1; };
-
-    const n0 = segN[0];
-    let prevL = add(points[0].x + n0.x * w[0] * 0.5, points[0].y + n0.y * w[0] * 0.5, points[0].z);
-    let prevR = add(points[0].x - n0.x * w[0] * 0.5, points[0].y - n0.y * w[0] * 0.5, points[0].z);
+    const add = (x, y, z, r, g, b) => { verts.push(x, y, z); vertsC.push(r, g, b); return verts.length / 3 - 1; };
 
     for (let i = 1; i < n - 1; i++) {
-        const p = points[i];
+        const p = pointsClipSpace[i];
         const nPrev = segN[i - 1], nNext = segN[i];
-        const cross = nPrev.x * nNext.y - nPrev.y * nNext.x; // actually d0 x d1
-        const dot = nPrev.x * nNext.x + nPrev.y * nNext.y;
+        const cPrev = colors[i - 1];
+        //const p1 = new THREE.Vector3(p.x - 0.01, p.y + 0.01, p.z);
 
-        if (Math.abs(dot) > 0.9999) { // straight
-            const L = add(p.x + nPrev.x * w[i] * 0.5, p.y + nPrev.y * w[i] * 0.5, p.z);
-            const R = add(p.x - nPrev.x * w[i] * 0.5, p.y - nPrev.y * w[i] * 0.5, p.z);
-            idx.push(prevL, prevR, L, prevR, R, L);
-            prevL = L; prevR = R;
-            continue;
-        }
 
-        // miter
-        let mx = nPrev.x + nNext.x, my = nPrev.y + nNext.y;
-        const mLen = Math.hypot(mx, my) || 1;
-        mx /= mLen; my /= mLen;
-        const cosHalf = mx * nPrev.x + my * nPrev.y; // = cos(theta/2)
-        const miterLen = w[i] * 0.5 / cosHalf;
+        const sz = 1.0/100.0;//10.0/points[i].z;
+        let thisIdx;
+        thisIdx = add(p.x - sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
+        thisIdx = add(p.x + sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
+        thisIdx = add(p.x + sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
 
-        const isLeft = cross > 0; // using dirs, but same sign as n's
-
-        if (isLeft) {
-            const inner = add(p.x + mx * miterLen, p.y + my * miterLen, p.z);
-            const outerA = add(p.x - nPrev.x * w[i] * 0.5, p.y - nPrev.y * w[i] * 0.5, p.z);
-            const outerB = add(p.x - nNext.x * w[i] * 0.5, p.y - nNext.y * w[i] * 0.5, p.z);
-
-            idx.push(prevL, prevR, inner);
-            idx.push(prevR, outerA, inner);
-            idx.push(inner, outerA, outerB); // bevel
-
-            prevL = inner;
-            prevR = outerB;
-        } else {
-            const inner = add(p.x + mx * miterLen, p.y + my * miterLen, p.z);
-            const outerA = add(p.x + nPrev.x * w[i] * 0.5, p.y + nPrev.y * w[i] * 0.5, p.z);
-            const outerB = add(p.x + nNext.x * w[i] * 0.5, p.y + nNext.y * w[i] * 0.5, p.z);
-
-            idx.push(prevL, prevR, outerA);
-            idx.push(prevR, inner, outerA);
-            idx.push(inner, outerB, outerA); // bevel, winding flipped
-
-            prevL = outerB;
-            prevR = inner;
-        }
+        thisIdx = add(p.x - sz, p.y + sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
+        thisIdx = add(p.x - sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
+        thisIdx = add(p.x + sz, p.y - sz, -0.5, cPrev.r, cPrev.g, cPrev.b); // add the point itself
+        idx.push(thisIdx);
     }
-
-    // last segment
-    const last = points[n - 1];
-    const nLast = segN[n - 2];
-    const Lend = add(last.x + nLast.x * w[n - 1] * 0.5, last.y + nLast.y * w[n - 1] * 0.5, last.z);
-    const Rend = add(last.x - nLast.x * w[n - 1] * 0.5, last.y - nLast.y * w[n - 1] * 0.5, last.z);
-    idx.push(prevL, prevR, Lend, prevR, Rend, Lend);
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(vertsC, 3));
     geo.setIndex(idx);
-    geo.computeBoundingBox();
+    //geo.computeBoundingBox();
     return geo;
 }

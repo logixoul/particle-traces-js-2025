@@ -127,9 +127,9 @@ export class App {
         this.camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
         window.r=this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize( window.innerWidth, window.innerHeight );
+        //this.renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild( this.renderer.domElement );
         this.controls = new OrbitControls( this.camera, this.renderer.domElement );
-        
         this.camera.position.z = 1;
         this.controls.update();
 
@@ -143,13 +143,16 @@ export class App {
 
 
         this.composer = new EffectComposer( this.renderer );
-        this.composer.addPass( new RenderPass( this.scene, this.camera ) );
+
+        this.camera2D = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        this.composer.addPass( new RenderPass( this.scene, this.camera2D ) );
        
 		/*let bleachBypassPass = new ShaderPass( BleachBypassShader );
         bleachBypassPass.uniforms['opacity'].value = 0.8;
         //bleachBypassPass.
         this.composer.addPass( bleachBypassPass );*/
-        if(false)this.composer.addPass( new BokehPass( this.scene, this.camera, {
+        if(false)this.composer.addPass( new BokehPass( this.scene, this.camera2D, {
             focus: 0.5,
             aperture: 5*0.00001,
             maxblur: 0.01,
@@ -176,9 +179,9 @@ export class App {
         for(let i=0;i<TAIL_LENGTH;i++){
             let iNormalized = 1.0-i/(TAIL_LENGTH-1);
             let brightness = Math.exp(-iNormalized*2.0);
-            let add = i==TAIL_LENGTH-2||i==TAIL_LENGTH-1?100.5:0.0;
+            let add = i==TAIL_LENGTH-2||i==TAIL_LENGTH-1?10.5:0.0;
             brightness += add;
-            this.weights.push(brightness);
+            this.weights.push(brightness * 2.0);
         }
 
         
@@ -224,12 +227,12 @@ export class App {
         const colors = [];
 
         for(const particle of this.particles){
-            const firstPoint = particle.oldPositions[(particle.newestIndex + 1) % TAIL_LENGTH];
+            const firstPoint = particle.oldPositions[(particle.newestIndex + TAIL_LENGTH - 1) % TAIL_LENGTH];
             points.push(new THREE.Vector3(firstPoint.x, firstPoint.y, firstPoint.z));
             colors.push(new THREE.Color(0, 0, 0));
             points.push(new THREE.Vector3(firstPoint.x, firstPoint.y, firstPoint.z));
             colors.push(new THREE.Color(0, 0, 0));
-            for(let i=0;i<TAIL_LENGTH;i++){
+            for(let i = 0;i < TAIL_LENGTH - 1; i++){
                 let iCircular = (particle.newestIndex + TAIL_LENGTH - i);
                 iCircular %= TAIL_LENGTH;
                 let iPrevCircular = particle.newestIndex + TAIL_LENGTH - i - 1;
@@ -243,6 +246,8 @@ export class App {
                 const g = c2.g * brightness;
                 const b = c2.b * brightness;
                 
+                //points.push(new THREE.Vector3(p1.x, p1.y, p1.z));
+                //colors.push(new THREE.Color(r, g, b));
                 points.push(new THREE.Vector3(p2.x, p2.y, p2.z));
                 colors.push(new THREE.Color(r, g, b));
             }
@@ -252,7 +257,7 @@ export class App {
             points.push(new THREE.Vector3(lastPoint.x, lastPoint.y, lastPoint.z));
             colors.push(new THREE.Color(0, 0, 0));
        }
-        const geo = MetaAILineRenderer.beveledLineNoOverlap(points, colors, z => z * 0.02); // width depends on z
+        const geo = MetaAILineRenderer.myBeveledLineNoOverlap(points, colors, z => z * 0.04, this.camera);
 
         const mesh = new THREE.Mesh(geo, this.lineMaterial);
         
@@ -263,7 +268,6 @@ export class App {
         this.scene.remove( mesh );
 
         mesh.geometry.dispose();
-        mesh.material.dispose();
         
         this.stats.update();
 
