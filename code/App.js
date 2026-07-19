@@ -29,50 +29,9 @@ import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
-// monkey patch for optimization:
-LineSegmentsGeometry.prototype.computeBoundingSphere = function () {
-    this.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), Infinity);
-};
-LineSegmentsGeometry.prototype.computeBoundingBox = function () {
-    if ( this.boundingBox === null ) {
-        this.boundingBox = new THREE.Box3(new THREE.Vector3( Infinity, Infinity, Infinity ), new THREE.Vector3( -Infinity, -Infinity, -Infinity ) );
-    }
-};
-/*class Global {
-
-}*/
-LineSegmentsGeometry.prototype.setPositions = function( array ) {
-
-		let lineSegments;
-
-		if ( array instanceof Float32Array ) {
-
-			lineSegments = array;
-
-		} else if ( Array.isArray( array ) ) {
-
-			lineSegments = new Float32Array( array );
-
-		}
-
-		const instanceBuffer = new THREE.InstancedInterleavedBuffer( lineSegments, 6, 1 ); // xyz, xyz
-        //instanceBuffer.setUsage(THREE.StreamCopyUsage); // lx
-		this.setAttribute( 'instanceStart', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 0 ) ); // xyz
-		this.setAttribute( 'instanceEnd', new THREE.InterleavedBufferAttribute( instanceBuffer, 3, 3 ) ); // xyz
-
-		this.instanceCount = this.attributes.instanceStart.count;
-
-		//
-
-		this.computeBoundingBox();
-		this.computeBoundingSphere();
-
-		return this;
-
-	};
+import * as MetaAILineRenderer from './MetaAILineRenderer.js';
 
 const noise3D = SimplexNoise.createNoise3D();
-const lineMaterial = new LineMaterial( { depthWrite: false, worldUnits: true, linewidth: 0.02, vertexColors: true, blending: THREE.AdditiveBlending } );
 
 function curlNoise3D(dstVector, x, y, z, noiseFn, eps = 1e-4) {
     // Partial derivatives using central differences
@@ -160,7 +119,7 @@ export class App {
         document.body.appendChild( this.stats.dom );
         //!!!!!!!!!!!!!!!!!!
 
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 100; i++) {
             this.particles.push(new Particle());
         }
 
@@ -174,6 +133,13 @@ export class App {
         this.camera.position.z = 1;
         this.controls.update();
 
+        this.lineMaterial = new THREE.MeshBasicMaterial({
+            transparent: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            vertexColors: true
+        });
 
 
         this.composer = new EffectComposer( this.renderer );
@@ -203,8 +169,8 @@ export class App {
         //this.renderer.setPixelRatio(0.5);
         
         // triple buffering for Intel GPU framedropping
-        this.line1 = this.createLine();
-        this.line2 = this.createLine();
+        this.line1 = this.createLineStrip();
+        this.line2 = this.createLineStrip();
         
         this.weights = [];
         for(let i=0;i<TAIL_LENGTH;i++){
@@ -215,7 +181,7 @@ export class App {
             this.weights.push(brightness);
         }
 
-        //this.line = new LineSegments2( this.geometry, lineMaterial );
+        
         this.lineToRender = this.line1;
         this.lineToWriteTo = this.line2;
 
@@ -226,37 +192,22 @@ export class App {
         //window.setInterval( this.animate.bind(this), 1000/60 );
     }
 
-    createLine() {
+    createLineStrip() {
         const positions = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2 );
         const colors = new Float32Array( TAIL_LENGTH*this.particles.length * 3 * 2);
-        const geometry = new LineSegmentsGeometry();
-        geometry.setPositions( positions );
-        geometry.setColors( colors );
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         geometry.lxMonkeyPatch = {
             positions: positions,
             colors: colors
         }
-        geometry.getAttribute('instanceStart').data.setUsage(THREE.StreamCopyUsage);
-        geometry.getAttribute('instanceColorStart').data.setUsage(THREE.StreamCopyUsage);
 
-        const line = new LineSegments2( geometry, lineMaterial );
-        return line;
+        const lineStrip = new THREE.Mesh( geometry, this.lineMaterial );
+        return lineStrip;
     }
     
     animate(time) {
-        /*if (time - this.lastTime < 33) return requestAnimationFrame(this.animate.bind(this));
-        this.lastTime = time;*/
-
-        if(this.lineToRender === this.line1) {
-            this.lineToRender = this.line2;
-            this.lineToWriteTo = this.line1;
-        } else {
-            this.lineToRender = this.line1;
-            this.lineToWriteTo = this.line2;
-        }
-
-        lineMaterial.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
-        
         this.controls.update();
 
         let positionIndex = 0; // vertex index
@@ -269,51 +220,50 @@ export class App {
             particle.update();
         }
 
-        const positions = this.lineToWriteTo.geometry.lxMonkeyPatch.positions;
-        const colors = this.lineToWriteTo.geometry.lxMonkeyPatch.colors;
-        
+        const points = [];
+        const colors = [];
+
         for(const particle of this.particles){
-            for(let i=0;i<TAIL_LENGTH-1;i++){
+            const firstPoint = particle.oldPositions[(particle.newestIndex + 1) % TAIL_LENGTH];
+            points.push(new THREE.Vector3(firstPoint.x, firstPoint.y, firstPoint.z));
+            colors.push(new THREE.Color(0, 0, 0));
+            points.push(new THREE.Vector3(firstPoint.x, firstPoint.y, firstPoint.z));
+            colors.push(new THREE.Color(0, 0, 0));
+            for(let i=0;i<TAIL_LENGTH;i++){
                 let iCircular = (particle.newestIndex + TAIL_LENGTH - i);
                 iCircular %= TAIL_LENGTH;
                 let iPrevCircular = particle.newestIndex + TAIL_LENGTH - i - 1;
                 iPrevCircular %= TAIL_LENGTH;
                 let brightness = this.weights[TAIL_LENGTH-i-1];
-                
                 let p1 = particle.oldPositions[iPrevCircular];
                 let c1 = particle.oldColors[iPrevCircular];
                 let p2 = particle.oldPositions[iCircular];
-                const r = c1.r * brightness;
-                const g = c1.g * brightness;
-                const b = c1.b * brightness;
+                let c2 = particle.oldColors[iCircular];
+                const r = c2.r * brightness;
+                const g = c2.g * brightness;
+                const b = c2.b * brightness;
                 
-                positions[positionIndex++] = p1.x;
-                colors[positionIndex] = r;
-                positions[positionIndex++] = p1.y;
-                colors[positionIndex] = g;
-                positions[positionIndex++] = p1.z;
-                colors[positionIndex] = b;
-                positions[positionIndex++] = p2.x;
-                colors[positionIndex] = r;
-                positions[positionIndex++] = p2.y;
-                colors[positionIndex] = g;
-                positions[positionIndex++] = p2.z;
-                colors[positionIndex] = b;
+                points.push(new THREE.Vector3(p2.x, p2.y, p2.z));
+                colors.push(new THREE.Color(r, g, b));
             }
-        }
-        this.lineToWriteTo.geometry.getAttribute('instanceStart').needsUpdate = true;
-        this.lineToWriteTo.geometry.getAttribute('instanceEnd').needsUpdate = true;
-        this.lineToWriteTo.geometry.getAttribute('instanceColorStart').needsUpdate = true;
-        this.lineToWriteTo.geometry.getAttribute('instanceColorEnd').needsUpdate = true;
-        
-        this.scene.add( this.lineToRender );
-        
-        //line.scale.set( 1, 1, 1 );
-        
-        this.composer.render();
+            const lastPoint = points[points.length-1];
+            points.push(new THREE.Vector3(lastPoint.x, lastPoint.y, lastPoint.z));
+            colors.push(new THREE.Color(0, 0, 0));
+            points.push(new THREE.Vector3(lastPoint.x, lastPoint.y, lastPoint.z));
+            colors.push(new THREE.Color(0, 0, 0));
+       }
+        const geo = MetaAILineRenderer.beveledLineNoOverlap(points, colors, z => z * 0.02); // width depends on z
 
-        this.scene.remove( this.lineToRender );
-        //this.renderer.render(this.scene, this.camera);
+        const mesh = new THREE.Mesh(geo, this.lineMaterial);
+        
+        this.scene.add(mesh);
+
+        this.composer.render();
+        
+        this.scene.remove( mesh );
+
+        mesh.geometry.dispose();
+        mesh.material.dispose();
         
         this.stats.update();
 
