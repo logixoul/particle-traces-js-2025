@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { SharedRenderingCode } from './sharedRenderingCode.js';
 class PointSplatRenderer {
-    constructor(composer, width, height, particles, camera) {
+    constructor(composer, scene, width, height, particles, camera) {
         this.composer = composer;
         this.width = width;
         this.height = height;
-        this.scene = new THREE.Scene();
+        this.scene = scene;
         this.camera = camera;
         this.particles = particles;
         this.sharedRenderingCode = new SharedRenderingCode(this.particles);

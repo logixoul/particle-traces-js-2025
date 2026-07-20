@@ -102,7 +102,7 @@ export class App {
         this.lineToRender = this.line1;
         this.lineToWriteTo = this.line2;
 
-        this.pointSplatRenderer = new PointSplatRenderer(this.composer, window.innerWidth, window.innerHeight, this.particles, this.camera);
+        this.pointSplatRenderer = new PointSplatRenderer(this.composer, this.scene, window.innerWidth, window.innerHeight, this.particles, this.camera);
 
         //this.renderer.setAnimationLoop( this.animate.bind(this) );
         //this.animate();
