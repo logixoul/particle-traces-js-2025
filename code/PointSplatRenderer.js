@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TexturePass } from 'three/addons/postprocessing/TexturePass.js';
 import { SharedRenderingCode } from './sharedRenderingCode.js';
 import { PointSplatMaterial } from './PointSplatMaterial.js';
 class PointSplatRenderer {
@@ -10,6 +11,22 @@ class PointSplatRenderer {
         this.camera = camera;
         this.particles = particles;
         this.sharedRenderingCode = new SharedRenderingCode(this.particles);
+        this.renderer = composer.renderer;
+
+        this.renderTarget = new THREE.WebGLRenderTarget(width, height, {
+            count: 2,
+            depthBuffer: false,
+            stencilBuffer: false,
+            type: THREE.FloatType,
+            format: THREE.RGBAFormat,
+            internalFormat: 'RGBA32F',
+        });
+        this.renderTarget.textures[1].format = THREE.RGBFormat;
+        this.renderTarget.textures[1].type = THREE.UnsignedByteType;
+        this.renderTarget.textures[1].internalFormat = 'RGB8';
+
+        this.colorTexturePass = new TexturePass(this.renderTarget.textures[0]);
+        this.composer.insertPass(this.colorTexturePass, this.composer.passes.length - 1);
 
         this.material = new PointSplatMaterial({
             size: 0.1,
@@ -29,6 +46,10 @@ class PointSplatRenderer {
         const mesh = new THREE.Points(geo, this.material);
 
         this.scene.add(mesh);
+
+        this.renderer.setRenderTarget(this.renderTarget);
+        this.renderer.clear();
+        this.renderer.render(this.scene, this.camera);
 
         this.composer.render();
 
