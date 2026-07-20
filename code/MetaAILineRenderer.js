@@ -88,35 +88,44 @@ export function beveledLineNoOverlap(points, colors, widthFn) {
     return geo;
 }
 
+// widthFn exists only for backward compatibility, but is not used in this function.
 export function myBeveledLineNoOverlap(points, colors, widthFn, camera) {
     // points: [{x,y,z},...] z is used only for width
     // widthFn: (z)=> width in world units
     const n = points.length;
     if (n < 2) return null;
 
+    const halfFov = THREE.MathUtils.degToRad(camera.fov * 0.5);
+
     camera.updateMatrixWorld();
     const mvpMatrix = camera.projectionMatrix.clone().multiply(camera.matrixWorldInverse);
-    const pointsClipSpace = points.map(p => {
-        const transformed = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(mvpMatrix);
-        return new THREE.Vector3(transformed.x / transformed.w, transformed.y / transformed.w, transformed.z*.5+.51);
+    const pointsTransformed = points.map(p => {
+        const pClipSpace = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(mvpMatrix);
+        const pCameraSpace = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(camera.matrixWorldInverse);
+        return {
+            clipSpace: new THREE.Vector3(pClipSpace.x / pClipSpace.w, pClipSpace.y / pClipSpace.w, pClipSpace.z / pClipSpace.w),
+            cameraSpace: pCameraSpace
+        }
     });
 
     const segN = [];
     for (let i = 0; i < n - 1; i++) {
-        const dx = pointsClipSpace[i + 1].x - pointsClipSpace[i].x;
-        const dy = pointsClipSpace[i + 1].y - pointsClipSpace[i].y;
+        const dx = pointsTransformed[i + 1].clipSpace.x - pointsTransformed[i].clipSpace.x;
+        const dy = pointsTransformed[i + 1].clipSpace.y - pointsTransformed[i].clipSpace.y;
         const l = Math.hypot(dx, dy) || 1;
-        segN[i] = { x: -dy / l, y: dx / l };
+        segN[i] = new THREE.Vector2(-dy / l, dx / l);
     }
     const pointN = [];
     pointN.push(new THREE.Vector3(segN[0].x, segN[0].y, 0.0));
     for (let i = 1; i < n - 1; i++) {
-        const sz = 0.01/pointsClipSpace[i].z;
+        const distance = -pointsTransformed[i].cameraSpace.z;
+        const worldWidth = 0.01;
+        const halfWidthNdcY = worldWidth / (2 * distance * Math.tan(halfFov));
+        const halfWidthNdcX = halfWidthNdcY / camera.aspect;
+        
         const nPrev = segN[i - 1], nNext = segN[i];
-        const nAvg = new THREE.Vector3((nPrev.x + nNext.x) * 0.5, (nPrev.y + nNext.y) * 0.5, 0.0);
-        nAvg.normalize();
-        nAvg.multiplyScalar(sz);
-        pointN.push(nAvg);
+        const nAvg = nPrev.clone().add(nNext).normalize();
+        pointN.push(nAvg.multiply(new THREE.Vector3(halfWidthNdcX, halfWidthNdcY, 0.0)));
     }
     pointN.push(new THREE.Vector3(segN[n - 2].x, segN[n - 2].y, 0.0));
     
@@ -126,15 +135,16 @@ export function myBeveledLineNoOverlap(points, colors, widthFn, camera) {
     const add2 = (p, c) => { verts.push(p.x, p.y, p.z); vertsC.push(c.r, c.g, c.b); return verts.length / 3 - 1; };
 
     for (let i = 1; i < n; i++) {
-        const pPrev = pointsClipSpace[i - 1];
-        const p = pointsClipSpace[i];
+        const pPrev = pointsTransformed[i - 1];
+        const p = pointsTransformed[i];
         const cPrev = colors[i - 1];
         //const p1 = new THREE.Vector3(p.x - 0.01, p.y + 0.01, p.z);
 
-        const beginLeft = pPrev.clone().sub(pointN[i - 1]);
-        const beginRight = pPrev.clone().add(pointN[i - 1]);
-        const endLeft = p.clone().sub(pointN[i]);
-        const endRight = p.clone().add(pointN[i]);
+        const beginLeft = pPrev.clipSpace.clone().sub(pointN[i - 1]);
+        const beginRight = pPrev.clipSpace.clone().add(pointN[i - 1]);
+        const endLeft = p.clipSpace.clone().sub(pointN[i]);
+        const endRight = p.clipSpace.clone().add(pointN[i]);
+        beginLeft.z = beginRight.z = endLeft.z = endRight.z = 0.0;
         
         let thisIdx;
         thisIdx = add2(beginLeft, cPrev);
