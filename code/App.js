@@ -85,7 +85,7 @@ export class App {
             width: window.innerWidth,
             height: window.innerHeight
         } ) );
-		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.2, 0.04, 3.0 ) );
+		//this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.2, 0.04, 3.0 ) );
         this.composer.addPass( new OutputPass() );
 
         if ( false&&this.renderer.getContext() instanceof WebGL2RenderingContext ) {

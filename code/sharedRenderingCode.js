@@ -28,12 +28,12 @@ export class SharedRenderingCode {
             for (let i = 0; i < TAIL_LENGTH - 1; i++) {
                 let iCircular = (particle.newestIndex + TAIL_LENGTH - i);
                 iCircular %= TAIL_LENGTH;
-                let iPrevCircular = particle.newestIndex + TAIL_LENGTH - i - 1;
-                iPrevCircular %= TAIL_LENGTH;
+                //let iPrevCircular = particle.newestIndex + TAIL_LENGTH - i - 1;
+                //iPrevCircular %= TAIL_LENGTH;
                 let brightness = this.weights[TAIL_LENGTH - i - 1];
                 //brightness = 1.0;
-                let p1 = particle.oldPositions[iPrevCircular];
-                let c1 = particle.oldColors[iPrevCircular];
+                //let p1 = particle.oldPositions[iPrevCircular];
+                //let c1 = particle.oldColors[iPrevCircular];
                 let p2 = particle.oldPositions[iCircular];
                 let c2 = particle.oldColors[iCircular];
                 /*const r = c2.r * brightness;
