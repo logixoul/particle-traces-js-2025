@@ -16,7 +16,7 @@ class PointSplatMaterial extends THREE.PointsMaterial {
                 layout(location = 1) out vec4 outNormal;
 
                 void main() {
-                    vec3 color = vColor.rgb;
+                    vec4 color = vColor;
                     //float colorMag = length(color);
                     //color *= (colorMag + 1.0) / (colorMag+0.00001);
                     
@@ -24,13 +24,15 @@ class PointSplatMaterial extends THREE.PointsMaterial {
                     float distanceFromCenter = length(pointUv);
                     if(distanceFromCenter > 1.0) discard;
 
-                    float alpha = smoothstep(1.0, 0.0, distanceFromCenter);
-                    outColor = vec4(color * alpha, alpha);//alpha * opacity);
+                    float weight = smoothstep(1.0, 0.0, distanceFromCenter);
+                    float alphaPunchy = color.a;
+                    if(color.a > .9) alphaPunchy += 10.0;
+                    outColor = vec4(alphaPunchy * color.rgb * weight, weight);//alpha * opacity);
 
                     float normalZ = sqrt(max(1.0 - dot(pointUv, pointUv), 0.0));
                     vec3 normal = normalize(vec3(pointUv, normalZ));
                     vec3 normal01 = normal * 0.5 + 0.5;
-                    outNormal = vec4(normal01 * alpha, alpha);
+                    outNormal = vec4(normal01 * color.a * weight, weight);
                 }
             `;
         };

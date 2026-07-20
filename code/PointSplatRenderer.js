@@ -61,7 +61,7 @@ class PointSplatRenderer {
                     vec3 lighting = 0.15 + diffuse * vec3(0.85);
 
                     //albedo = vec4(0.5, 1.0, 0.0, 1.0);
-                    gl_FragColor = vec4(albedo.rgb * 10.0 * lighting + specular * vec3(10.35), albedo.a);
+                    gl_FragColor = vec4(albedo.rgb * 10.0 * lighting + specular * vec3(100.35), albedo.a);
                     //gl_FragColor = vec4(normal, 1.0);
                 }
             `
@@ -92,22 +92,24 @@ class PointSplatRenderer {
         });
 
         const positions = new Float32Array(verts.length * 3);
-        const colors = new Float32Array(verts.length * 3);
+        const colors = new Float32Array(verts.length * 4);
         for (let i = 0; i < verts.length; i++) {
             const position = verts[i].position;
             const color = verts[i].color;
-            const offset = i * 3;
-            positions[offset] = position.x;
-            positions[offset + 1] = position.y;
-            positions[offset + 2] = position.z;
-            colors[offset] = color.r;
-            colors[offset + 1] = color.g;
-            colors[offset + 2] = color.b;
+            const posOffset = i * 3;
+            const colorOffset = i * 4;
+            positions[posOffset] = position.x;
+            positions[posOffset + 1] = position.y;
+            positions[posOffset + 2] = position.z;
+            colors[colorOffset] = color.x;
+            colors[colorOffset + 1] = color.y;
+            colors[colorOffset + 2] = color.z;
+            colors[colorOffset + 3] = color.w;
         }
 
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
 
         const mesh = new THREE.Points(geo, this.material);
 
