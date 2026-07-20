@@ -17,17 +17,20 @@ class PointSplatMaterial extends THREE.PointsMaterial {
 
                 void main() {
                     vec3 color = vColor.rgb;
+                    //float colorMag = length(color);
+                    //color *= (colorMag + 1.0) / (colorMag+0.00001);
                     
                     vec2 pointUv = gl_PointCoord * 2.0 - 1.0;
                     float distanceFromCenter = length(pointUv);
-                    if (distanceFromCenter > 1.0) discard;
+                    if(distanceFromCenter > 1.0) discard;
 
-                    float alpha = pow(1.0 - distanceFromCenter, 3.0);
-                    outColor = vec4(color, 0.0);
+                    float alpha = smoothstep(1.0, 0.0, distanceFromCenter);
+                    outColor = vec4(color * alpha, alpha);//alpha * opacity);
 
-                    float normalZ = sqrt(1.0 - dot(pointUv, pointUv));
+                    float normalZ = sqrt(max(1.0 - dot(pointUv, pointUv), 0.0));
                     vec3 normal = normalize(vec3(pointUv, normalZ));
-                    outNormal = vec4(normal * 0.5 + 0.5, 1.0);
+                    vec3 normal01 = normal * 0.5 + 0.5;
+                    outNormal = vec4(normal01 * alpha, alpha);
                 }
             `;
         };
