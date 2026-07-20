@@ -102,7 +102,7 @@ export class App {
         this.lineToRender = this.line1;
         this.lineToWriteTo = this.line2;
 
-        this.pointSplatRenderer = new PointSplatRenderer(this.renderer, window.innerWidth, window.innerHeight, this.camera, this.composer);
+        this.pointSplatRenderer = new PointSplatRenderer(this.composer, window.innerWidth, window.innerHeight, this.particles, this.camera);
 
         //this.renderer.setAnimationLoop( this.animate.bind(this) );
         //this.animate();
@@ -144,7 +144,7 @@ export class App {
     }
 
     renderPointSplat() {
-        this.pointSplatRenderer.render(this.particles);
+        this.pointSplatRenderer.render();
     }
     
     animate(time) {
@@ -152,8 +152,8 @@ export class App {
 
         this.updateParticles();
 
-        this.renderLinesNoOverdraw();
-        //this.renderPointSplat();
+        //this.renderLinesNoOverdraw();
+        this.renderPointSplat();
         
         this.stats.update();
 
