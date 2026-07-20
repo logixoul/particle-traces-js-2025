@@ -68,9 +68,11 @@ export class App {
 
         this.composer = new EffectComposer( this.renderer );
 
-        this.camera2D = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+        //this.camera2D = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
 
-        this.composer.addPass( new RenderPass( this.scene, this.camera2D ) );
+        //this.composer.addPass( new RenderPass( this.scene, this.camera2D ) );
+
+        this.composer.addPass( new RenderPass( this.scene, this.camera ) );
        
 		/*let bleachBypassPass = new ShaderPass( BleachBypassShader );
         bleachBypassPass.uniforms['opacity'].value = 0.8;
@@ -83,7 +85,7 @@ export class App {
             width: window.innerWidth,
             height: window.innerHeight
         } ) );
-		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.5 ) );
+		//this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.3, 0.5, 0.5 ) );
         this.composer.addPass( new OutputPass() );
 
         if ( false&&this.renderer.getContext() instanceof WebGL2RenderingContext ) {

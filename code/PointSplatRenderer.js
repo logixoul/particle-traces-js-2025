@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SharedRenderingCode } from './sharedRenderingCode.js';
+import { PointSplatMaterial } from './PointSplatMaterial.js';
 class PointSplatRenderer {
     constructor(composer, scene, width, height, particles, camera) {
         this.composer = composer;
@@ -10,8 +11,8 @@ class PointSplatRenderer {
         this.particles = particles;
         this.sharedRenderingCode = new SharedRenderingCode(this.particles);
 
-        this.material = new THREE.PointsMaterial({
-            size: 10.0,
+        this.material = new PointSplatMaterial({
+            size: 0.1,
             vertexColors: true,
             transparent: true,
             blending: THREE.AdditiveBlending,
