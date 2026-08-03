@@ -43,7 +43,7 @@ export class App {
         document.body.appendChild( this.stats.dom );
         //!!!!!!!!!!!!!!!!!!
 
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 1000; i++) {
             this.particles.push(new Particle());
         }
 
@@ -74,28 +74,11 @@ export class App {
 
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
        
-		/*let bleachBypassPass = new ShaderPass( BleachBypassShader );
-        bleachBypassPass.uniforms['opacity'].value = 0.8;
-        //bleachBypassPass.
-        this.composer.addPass( bleachBypassPass );*/
-        if(false)this.composer.addPass( new BokehPass( this.scene, this.camera2D, {
-            focus: 0.5,
-            aperture: 5*0.00001,
-            maxblur: 0.01,
-            width: window.innerWidth,
-            height: window.innerHeight
-        } ) );
 		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.2, 0.04, 3.0 ) );
         this.composer.addPass( new OutputPass() );
 
-        if ( false&&this.renderer.getContext() instanceof WebGL2RenderingContext ) {
-            this.composer.renderTarget1.samples = 8;
-            this.composer.renderTarget2.samples = 8;
-        }
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.1;
-        //this.renderer.toneMapping = THREE.LinearToneMapping
-        //this.renderer.setPixelRatio(0.5);
         
         // triple buffering for Intel GPU framedropping
         this.line1 = this.createLineStrip();
@@ -105,9 +88,6 @@ export class App {
         this.lineToWriteTo = this.line2;
 
         this.pointSplatRenderer = new PointSplatRenderer(this.composer, this.scene, window.innerWidth, window.innerHeight, this.particles, this.camera);
-
-        //this.renderer.setAnimationLoop( this.animate.bind(this) );
-        //this.animate();
 
         this.sharedRenderingCode = new SharedRenderingCode(this.particles);
 

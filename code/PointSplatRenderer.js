@@ -89,9 +89,9 @@ class PointSplatRenderer {
             //scale: 3.0,
             //vertexColors: true,
             //transparent: true,
-            blending: THREE.NoBlending,
-            depthWrite: true,
-            depthTest: true,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            depthTest: false,
             sizeAttenuation: true,
         });
 
