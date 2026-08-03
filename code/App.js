@@ -74,7 +74,7 @@ export class App {
 
         this.composer.addPass( new RenderPass( this.scene, this.camera ) );
        
-		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.2, 0.04, 3.0 ) );
+		this.composer.addPass( new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 0.2, 0.04, 1.0 ) );
         this.composer.addPass( new OutputPass() );
 
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
