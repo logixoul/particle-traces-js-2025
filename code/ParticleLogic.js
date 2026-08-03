@@ -57,17 +57,31 @@ export class Particle {
             this.update();
         }
     }
+    IN_BOX = false;
     update() {
         let position = this.oldPositions[this.newestIndex];
         let colorRef = this.oldColors[this.newestIndex];
 
         this.newestIndex = (this.newestIndex + 1) % TAIL_LENGTH;
         let noiseScale = 0.3;
+        if(this.IN_BOX) {
+            noiseScale = 1.0;
+        }
         curlNoise3D(this.velocity, position.x * noiseScale, position.y * noiseScale, position.z * noiseScale, noise3D);
         this.velocity.multiplyScalar(0.01);
-        colorRef.setHSL((Math.atan2(this.velocity.y, this.velocity.x) / Math.PI + 1) * .5, 1, 0.5);
+        if(this.IN_BOX) {
+            this.velocity.multiplyScalar(0.3);
+        }
+        const brightness = this.IN_BOX ? 0.1 : 1.0;
+        colorRef.setHSL((Math.atan2(this.velocity.y, this.velocity.x) / Math.PI + 1) * .5, 1, 0.5* brightness);
         this.oldPositions[this.newestIndex].copy(position);
         this.oldPositions[this.newestIndex].add(this.velocity);
+
+        if(this.IN_BOX) {
+            this.oldPositions[this.newestIndex].x %= 1.0;
+            this.oldPositions[this.newestIndex].y %= 1.0;
+            this.oldPositions[this.newestIndex].z %= 1.0;
+        }
         this.age++;
         this.remainingLife--;
     }
