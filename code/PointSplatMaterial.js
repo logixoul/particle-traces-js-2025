@@ -19,7 +19,7 @@ class PointSplatMaterial extends THREE.PointsMaterial {
                     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
                     gl_Position = projectionMatrix * mvPosition;
 
-                    gl_PointSize = size * 30.0 / -mvPosition.z;
+                    gl_PointSize = size * 50.0 / -mvPosition.z;
 
                     vColor = color4;
                 }
